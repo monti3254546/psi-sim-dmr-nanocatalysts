@@ -3,10 +3,10 @@ import os
 import tifffile as tiff
 import matplotlib.pyplot as plt
 
-#Mac
+#Mac Moritz
 #path = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20230908_23136_AbsortionSpectrum/5/"
 #Windows Samuel
-path="C:\\Users\\Samuel_Uni\\Documents\\Uni\\Semester V\\PSI_projekt\\XAS_Plots\\10"
+#path="C:\\Users\\Samuel_Uni\\Documents\\Uni\\Semester V\\PSI_projekt\\XAS_Plots\\10"
 data = []
 files = sorted(os.listdir(path))
 for i in files:
