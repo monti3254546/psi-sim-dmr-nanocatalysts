@@ -3,10 +3,14 @@ import os
 import tifffile as tiff
 import matplotlib.pyplot as plt
 
+index = 5   #1 to 10, both including. this dictates what sample to analyze
 #Mac Moritz
-#path = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20230908_23136_AbsortionSpectrum/5/"
+path = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20230908_23136_AbsortionSpectrum/" + str(index) + "/"
 #Windows Samuel
-#path="C:\\Users\\Samuel_Uni\\Documents\\Uni\\Semester V\\PSI_projekt\\XAS_Plots\\10"
+#path="C:\\Users\\Samuel_Uni\\Documents\\Uni\\Semester V\\PSI_projekt\\XAS_Plots\\" + str(index) + "\\"
+
+energies = np.loadtxt(path[:-2] + "AbsortionSpectrum_23136_" + str(index).zfill(2) + ".csv", delimiter=",", skiprows=1, usecols=0)
+
 data = []
 files = sorted(os.listdir(path))
 for i in files:
@@ -27,10 +31,7 @@ plt.show()
 plt.imshow(L3_image / L2_image, cmap = "gray")
 plt.show()
 #change x-axis of the spectrum to energy values
-start_energy=700
-end_energy=744
-energy=np.linspace(start_energy, end_energy, len(globSpectrum))
-plt.plot(energy, globSpectrum)
+plt.plot(energies, globSpectrum)
 plt.xlabel("Energy (eV)")
 plt.ylabel("Intensity")
 plt.show()
