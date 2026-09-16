@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from matplotlib.widgets import RectangleSelector
 
 
 
@@ -81,15 +82,79 @@ def digitise_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="dig
 
 
 
-def axis_labelling(image_path, pixel_bonds=None):
+def onselect(eclick, erelease):
+    """Callback triggered whenever a rectangle selection is updated."""
+    x1, y1 = eclick.xdata, eclick.ydata
+    x2, y2 = erelease.xdata, erelease.ydata
+
+    left = min(x1, x2)
+    right = max(x1, x2)
+    top = min(y1, y2)     # In image coordinates, Y=0 is at the top
+    bottom = max(y1, y2)  # Larger Y pixel index is lower on screen
+
+    print(f"\nSelection Bounds:")
+    print(f"  Left (X min):   {left:.2f} px")
+    print(f"  Right (X max):  {right:.2f} px")
+    print(f"  Top (Y top):    {top:.2f} px")
+    print(f"  Bottom (Y bot): {bottom:.2f} px")
+
+
+
+def on_key_press(event):
+    """Closes the figure window when ENTER (or Return) is pressed."""
+    if event.key in ['enter', 'return']:
+        plt.close(event.canvas.figure)
+
+
+
+def extract_rect(image_path):
+    # 1. Load image and display plot
+    img = mpimg.imread(image_path)
+    fig, ax = plt.subplots(figsize=(12, 10))
+    ax.imshow(img)
+    ax.grid(True, color='k', linestyle='--', linewidth=.2)
+    ax.set_title("Click & drag to draw plot boundaries. \nAdjust corner handles as needed, then close the window to confirm.")
+
+    # 2. Attach RectangleSelector
+    rect_selector = RectangleSelector(
+        ax, 
+        onselect,
+        useblit=True,
+        button=[1],              # Left mouse button only
+        minspanx=5, minspany=5,  # Ignore accidental tiny clicks
+        props=dict(edgecolor='red', facecolor='red', alpha=0.2, fill=True),
+        interactive=True         # Keeps box active to drag edges/corners
+    )
+
+    plt.show()
+
+    # 3. Connect key press listener for ENTER key
+    fig.canvas.mpl_connect('key_press_event', on_key_press)
+
+    # Show plot (script execution pauses here until window is closed or ENTER is pressed)
+    plt.show()
+
+    # 4. Extract final selection coordinates after window closes
+    xmin, xmax, ymin, ymax = rect_selector.extents
+    print("\n" + "="*40)
+    print(f"FINAL BOUNDS CONFIRMED:")
+    print(f"  (X min, X max, Y top, Y bottom) = ({xmin:.1f}, {xmax:.1f}, {ymin:.1f}, {ymax:.1f})")
+    print("="*40)
+
+    return (int(xmin), int(xmax), int(ymin), int(ymax))
+
+
+
+def extract_points(image_path, pixel_bonds=None):
     """
     Proper axis labelling: Extracts known data points (intensity, energy) from spectrum screenshot in matplotlib environment
     """
     # 1. Load and display the image
     img = mpimg.imread(image_path)  # Replace with your image file
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 10))
     ax.imshow(img)
+    ax.grid(True, color='k', linestyle='--', linewidth=.2)
     plt.title("Left-click known points (e.g., axes corners or known peaks).\nRight-click to remove last point. Press ENTER when finished.")
 
     # 2. Capture pixel points interactively (show_clicks=True draws red markers)
@@ -115,6 +180,8 @@ def axis_labelling(image_path, pixel_bonds=None):
 
     return calibrated_data
 
+
+
 # ==========================================
 # USER CONFIGURATION
 # ==========================================
@@ -125,13 +192,16 @@ if __name__ == "__main__":
     # 2. Find these using MS Paint, Preview, or a basic image viewer.
     # Look at the coordinates of the bottom-left and top-right corners of the graph box.
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
-    PIXEL_BOUNDS = (183, 3028, 17, 410)
+    #PIXEL_BOUNDS = (183, 3028, 17, 410)
+
+    PIXEL_BOUNDS = extract_rect(IMAGE_PATH)
+    print('\n pixel bounds: ', PIXEL_BOUNDS, '\n')
     
     # 3. What do the edges of that pixel box represent in real units?
     # Format: (Wavelength_min, Wavelength_max, Absorbance_min, Absorbance_max)
     AXIS_VALUES = (712, 782, 0.0, 0.2)
 
-    calibrated_data = axis_labelling(IMAGE_PATH, PIXEL_BOUNDS)
+    calibrated_data = extract_points(IMAGE_PATH, PIXEL_BOUNDS)
     print(calibrated_data)
     
     # Run the extractor
