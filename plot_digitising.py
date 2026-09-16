@@ -8,8 +8,11 @@ import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
-def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="digitised.csv"):
+
+
+def digitise_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="digitised.csv"):
     """
     Extracts data points from an image of a spectrum plot.
     
@@ -60,21 +63,57 @@ def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="dig
             data_points.append([x_val, y_val])
             
     # 5. Save and visualize
-    df = pd.DataFrame(data_points, columns=["Wavelength", "Absorbance"])
+    df = pd.DataFrame(data_points, columns=["Energy in eV", "Intensity"])
     df.to_csv(output_csv, index=False)
     print(f"Data successfully saved to {output_csv}")
     
     # Plot the extracted data to verify accuracy
     plt.figure(figsize=(8, 4))
-    plt.plot(df["Wavelength"], df["Absorbance"], color='red', label="Extracted Data")
+    plt.plot(df["Energy in eV"], df["Intensity"], color='red', label="Extracted Data")
     plt.xlim(val_xmin, val_xmax)
     plt.ylim(val_ymin, val_ymax)
-    plt.xlabel("Wavelength")
-    plt.ylabel("Absorbance")
-    plt.title("Digitized Spectrum")
+    plt.xlabel("Energy in eV")
+    plt.ylabel("Intensity")
+    plt.title("Digitised Spectrum")
     plt.grid(True)
     plt.legend()
     plt.show()
+
+
+
+def axis_labelling(image_path, pixel_bonds=None):
+    """
+    Proper axis labelling: Extracts known data points (intensity, energy) from spectrum screenshot in matplotlib environment
+    """
+    # 1. Load and display the image
+    img = mpimg.imread(image_path)  # Replace with your image file
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.imshow(img)
+    plt.title("Left-click known points (e.g., axes corners or known peaks).\nRight-click to remove last point. Press ENTER when finished.")
+
+    # 2. Capture pixel points interactively (show_clicks=True draws red markers)
+    pixel_points = plt.ginput(n=-1, timeout=0, show_clicks=True)
+    plt.close(fig)
+
+    # 3. Associate clicked pixel points with real-world Energy & Intensity values
+    calibrated_data = []
+
+    print("\n--- Calibration Input ---")
+    for i, (px, py) in enumerate(pixel_points):
+        print(f"\nPoint {i+1} at Pixel (X={px:.2f}, Y={py:.2f})")
+        energy = float(input("  Enter known Energy (X-value): "))
+        intensity = float(input("  Enter known Intensity (Y-value): "))
+        calibrated_data.append({
+            'px': px, 
+            'py': py, 
+            'energy': energy, 
+            'intensity': intensity
+        })
+
+    print("\nCollected Calibration Points:", calibrated_data)
+
+    return calibrated_data
 
 # ==========================================
 # USER CONFIGURATION
@@ -86,11 +125,14 @@ if __name__ == "__main__":
     # 2. Find these using MS Paint, Preview, or a basic image viewer.
     # Look at the coordinates of the bottom-left and top-right corners of the graph box.
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
-    PIXEL_BOUNDS = (183, 3028, 17, 410) 
+    PIXEL_BOUNDS = (183, 3028, 17, 410)
     
     # 3. What do the edges of that pixel box represent in real units?
     # Format: (Wavelength_min, Wavelength_max, Absorbance_min, Absorbance_max)
     AXIS_VALUES = (712, 782, 0.0, 0.2)
+
+    calibrated_data = axis_labelling(IMAGE_PATH, PIXEL_BOUNDS)
+    print(calibrated_data)
     
     # Run the extractor
-    digitize_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
+    digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
