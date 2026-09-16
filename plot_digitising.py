@@ -145,9 +145,11 @@ def extract_rect(image_path):
 
 
 
-def extract_points(image_path, pixel_bonds=None):
+def extract_points(image_path):
     """
     Proper axis labelling: Extracts known data points (intensity, energy) from spectrum screenshot in matplotlib environment
+
+    returns calibrated_data as [px, py, energy, intensity]
     """
     # 1. Load and display the image
     img = mpimg.imread(image_path)  # Replace with your image file
@@ -169,16 +171,42 @@ def extract_points(image_path, pixel_bonds=None):
         print(f"\nPoint {i+1} at Pixel (X={px:.2f}, Y={py:.2f})")
         energy = float(input("  Enter known Energy (X-value): "))
         intensity = float(input("  Enter known Intensity (Y-value): "))
-        calibrated_data.append({
-            'px': px, 
-            'py': py, 
-            'energy': energy, 
-            'intensity': intensity
-        })
+        calibrated_data.append([px, py, energy, intensity])
 
     print("\nCollected Calibration Points:", calibrated_data)
 
     return calibrated_data
+
+
+
+def linear_interpolation(pixel_bounds, calibrated_data):
+    """
+    Adapts the axis values to the true values evaluated from 'extract_points()'
+    
+    :param pixel_bounds: Tuple of (x_min_px, x_max_px, y_top_px, y_bottom_px)
+    :param calibrated_data: List of 2 reference points [[px0, py0, e0, i0], [px1, py1, e1, i1]]
+    :return: Tuple of (energy_min, energy_max, intensity_min, intensity_max)
+    """
+    x_min_px, x_max_px, y_top_px, y_bottom_px = pixel_bounds
+    (px0, py0, e0, i0), (px1, py1, e1, i1) = calibrated_data[:2]
+
+    # 1. Calculate signed slopes (Delta Physical / Delta Pixel)
+    slope_x = (e1 - e0) / (px1 - px0)
+    slope_y = (i1 - i0) / (py1 - py0)  # Naturally negative due to image Y-inversion
+
+    # 2. Linear projection for X (Energy)
+    e_at_xmin = e0 + slope_x * (x_min_px - px0)
+    e_at_xmax = e0 + slope_x * (x_max_px - px0)
+
+    # 3. Linear projection for Y (Intensity)
+    i_at_ytop = i0 + slope_y * (y_top_px - py0)
+    i_at_ybottom = i0 + slope_y * (y_bottom_px - py0)
+
+    # 4. Standardize output into (E_min, E_max, I_min, I_max)
+    emin, emax = min(e_at_xmin, e_at_xmax), max(e_at_xmin, e_at_xmax)
+    imin, imax = min(i_at_ytop, i_at_ybottom), max(i_at_ytop, i_at_ybottom)
+
+    return (emin, emax, imin, imax)
 
 
 
@@ -189,9 +217,9 @@ if __name__ == "__main__":
     # 1. Path to your screenshot
     IMAGE_PATH = "Images\Plot Digitising\Dummy_Spectrum.png"
     
-    # 2. Find these using MS Paint, Preview, or a basic image viewer.
-    # Look at the coordinates of the bottom-left and top-right corners of the graph box.
+    # 2. Extract the rectangular bounds of the spectrum
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
+    
     #PIXEL_BOUNDS = (183, 3028, 17, 410)
 
     PIXEL_BOUNDS = extract_rect(IMAGE_PATH)
@@ -199,10 +227,11 @@ if __name__ == "__main__":
     
     # 3. What do the edges of that pixel box represent in real units?
     # Format: (Wavelength_min, Wavelength_max, Absorbance_min, Absorbance_max)
-    AXIS_VALUES = (712, 782, 0.0, 0.2)
+    
+    #AXIS_VALUES = (712, 782, 0.0, 0.2)
 
-    calibrated_data = extract_points(IMAGE_PATH, PIXEL_BOUNDS)
-    print(calibrated_data)
+    calibrated_data = extract_points(IMAGE_PATH)
+    AXIS_VALUES = linear_interpolation(PIXEL_BOUNDS, calibrated_data)
     
     # Run the extractor
     digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
