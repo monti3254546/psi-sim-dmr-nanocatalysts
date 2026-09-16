@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="spectrum_data.csv"):
+def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="digitised.csv"):
     """
     Extracts data points from an image of a spectrum plot.
     
@@ -18,11 +18,13 @@ def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="spe
     :param axis_limits: Tuple of (x_val_min, x_val_max, y_val_min, y_val_max) defining real-world axis values.
     :param output_csv: Path to save the extracted data.
     """
+    output_csv = image_path[0:-4] + "_digitised.csv"
+
     px_xmin, px_xmax, px_ymin, px_ymax = plot_area_pixels
     val_xmin, val_xmax, val_ymin, val_ymax = axis_limits
     
     # 1. Load the image and crop it to the plot area
-    img = cv2.imread(image_path)
+    img = cv2.imread(image_path)   # combines the path and name strings to get the image path name
     if img is None:
         raise ValueError("Image not found. Check the file path.")
     
@@ -79,16 +81,16 @@ def digitize_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="spe
 # ==========================================
 if __name__ == "__main__":
     # 1. Path to your screenshot
-    IMAGE_FILE = "spectrum.png"
+    IMAGE_PATH = "Images\Plot Digitising\Dummy_Spectrum.png"
     
     # 2. Find these using MS Paint, Preview, or a basic image viewer.
     # Look at the coordinates of the bottom-left and top-right corners of the graph box.
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
-    PIXEL_BOUNDS = (100, 800, 50, 450) 
+    PIXEL_BOUNDS = (183, 3028, 17, 410) 
     
     # 3. What do the edges of that pixel box represent in real units?
     # Format: (Wavelength_min, Wavelength_max, Absorbance_min, Absorbance_max)
-    AXIS_VALUES = (300, 800, 0.0, 1.5) 
+    AXIS_VALUES = (712, 782, 0.0, 0.2) 
     
     # Run the extractor
-    digitize_spectrum(IMAGE_FILE, PIXEL_BOUNDS, AXIS_VALUES)
+    digitize_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
