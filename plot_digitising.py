@@ -90,7 +90,7 @@ if __name__ == "__main__":
     
     # 3. What do the edges of that pixel box represent in real units?
     # Format: (Wavelength_min, Wavelength_max, Absorbance_min, Absorbance_max)
-    AXIS_VALUES = (712, 782, 0.0, 0.2) 
+    AXIS_VALUES = (712, 782, 0.0, 0.2)
     
     # Run the extractor
     digitize_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
