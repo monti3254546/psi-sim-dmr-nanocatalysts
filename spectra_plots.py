@@ -1,3 +1,4 @@
+
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,6 +49,8 @@ relative_absorption =np.nan_to_num(np.divide(L3_image, L2_image), nan=0)
 # )
 #Plot multiple spectra
 # Load reference spectrum into folder
+
+
 ref_spectrum = np.loadtxt(os.path.join(path[:-3], "refSpectrum_1.txt"), delimiter="\t", skiprows=1)
 plt.plot(ref_spectrum[:, 0], ref_spectrum[:, 1], label="Reference Spectrum")
 plt.plot(energies, globSpectrum, label="Measured Spectrum")
