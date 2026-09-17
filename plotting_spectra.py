@@ -11,8 +11,8 @@ import numpy as np
 from scipy import stats
 
 # Load data
-mono_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\20260917_1717_AbsortionSpectrum_actual.csv', delimiter=',',skiprows=5)
-input_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\20260917_1717_AbsortionSpectrum_theoretical.csv', delimiter=',',skiprows=5)
+mono_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\mono_ru1714.csv', delimiter=',',skiprows=5)
+input_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\input_ru1714.csv', delimiter=',',skiprows=5)
 
 x_input = input_data[:,0]
 y_mono = mono_data[:,0]
@@ -28,7 +28,7 @@ y_trend = slope * x_trend + intercept
 
 # Multi-panel figure
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-plt.suptitle('Spectra Comparison for Experiment nr. 1717 (Ni)')
+plt.suptitle('Spectra Comparison for Experiment nr. 1714 (Ru)')
 
 # First panel
 ax1.plot(mono_data[:,0], mono_data[:,1], label='Mono Spectrum', color='blue')
@@ -57,5 +57,5 @@ ax2.grid(True, linestyle=':', alpha=0.6)
 # Prevent overlapping titles and axis labels
 plt.tight_layout()
 
-plt.savefig('Images\\Plots comparison Ni-Ru\\Comparison_Spectras_Ni-1717.png', dpi=300)
+plt.savefig('Images\\Plots comparison Ni-Ru\\Comparison_Spectras_Ru-1714.png', dpi=300)
 plt.show()
