@@ -48,8 +48,8 @@ ax2.plot(
     linestyle='--', 
     label=f'Fit: y = {slope:.3f}x + {intercept:.3f}\n$R^2$ = {r_squared:.4f}'
 )
-ax2.set_xlabel("Energy in eV")
-ax2.set_ylabel("Intensity (arbitrary units)")
+ax2.set_xlabel("Input energy range (theoretical) in eV")
+ax2.set_ylabel("Actual energy range (monochromator) in eV")
 ax2.legend()
 ax2.grid(True, linestyle=':', alpha=0.6)
 
