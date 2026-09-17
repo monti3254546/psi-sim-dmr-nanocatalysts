@@ -1,7 +1,7 @@
 """"
 Insert plot screenshot, returns raw data
 
-Code written using Gemini Pro 3.1 ono 16.09.2026
+Code written using Gemini Thinking Mode 3.6 on 16.09.2026
 """
 
 import cv2

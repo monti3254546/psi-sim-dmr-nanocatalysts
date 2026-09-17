@@ -1,8 +1,3 @@
-x, 
-        onselect,
-        useblit=True,
-        button=[1],              # Left mouse button only
-        minspanx=5, minspany=5,  # Ignore accidental tiny clicks
-        props=dict(edgecolor='red', facecolor='red', alpha=0.2, fill=True),
-        interactive=True         # Keeps box active to drag edges/corners
-    )
+o, label='Mono vs. Input', color='violet')
+ax2.scatter(x_input, y_mono, color='red', label='Linear Regression', zorder=3)
+ax2.plot(
