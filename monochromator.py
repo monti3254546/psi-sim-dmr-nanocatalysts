@@ -93,6 +93,5 @@ ax_right.set_ylabel("Intensity")
 ax_right.legend()
 
 plt.tight_layout()
-
-
+plt.savefig("/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/monochromator/monochromator-debugging.png", dpi = 300)
 plt.show()
