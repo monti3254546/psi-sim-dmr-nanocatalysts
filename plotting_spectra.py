@@ -57,5 +57,5 @@ ax2.grid(True, linestyle=':', alpha=0.6)
 # Prevent overlapping titles and axis labels
 plt.tight_layout()
 
-plt.show()
 plt.savefig('Images\\Plots comparison Ni-Ru\\Comparison_Spectras_Ni-1717.png', dpi=300)
+plt.show()
