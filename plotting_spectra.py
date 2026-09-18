@@ -10,11 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 
+
 # Load data
-nexp = '1733'     # number of the experiment. Note that file names need to be identical!
-element = 'Ni'  # element (Ni or Ru)
-mono_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\mono_'+element+nexp+'.csv', delimiter=',',skiprows=5)
-input_data=np.loadtxt('Images\\Plots comparison Ni-Ru\\input_'+element+nexp+'.csv', delimiter=',',skiprows=5)
+nexp = '1737_normalisation'     # number of the experiment. Note that file names need to be identical!
+element = 'ru'  # element (Ni or Ru)
+mono_data=np.loadtxt('Images\\Plots comparison Ru t=1415\\mono_'+element+nexp+'.csv', delimiter=',',skiprows=5)
+input_data=np.loadtxt('Images\\Plots comparison Ru t=1415\\input_'+element+nexp+'.csv', delimiter=',',skiprows=5)
 
 x_input = input_data[:,0]
 y_mono = mono_data[:,0]
@@ -59,5 +60,5 @@ ax2.grid(True, linestyle=':', alpha=0.6)
 # Prevent overlapping titles and axis labels
 plt.tight_layout()
 
-plt.savefig('Images\\Plots comparison Ni-Ru\\Comparison_Spectras_'+element+'-'+nexp+'.png', dpi=300)
+plt.savefig('Images\\Plots comparison Ru t=1415\\Comparison_Spectras_'+element+'-'+nexp+'.png', dpi=300)
 plt.show()
