@@ -1,0 +1,72 @@
+import os
+import numpy as np
+import tifffile as tiff
+
+#absortion spectrum index, select for each folder of images
+index = "1754"
+
+# 1. Directory Setup
+base_path = r"C:\Users\Samuel_Uni\psi-sim-dmr-nanocatalysts\Images_and_Data\ni_ru_v4"
+image_folder = os.path.join(base_path, f"20260918_{index}_AbsortionSpectrum")
+txt_path = os.path.join(image_folder, "scan_1.txt")
+output_dir = os.path.join(base_path, f"Keithley_normalised_images_{index}")
+
+os.makedirs(output_dir, exist_ok=True)
+
+# 2. Load scan metadata
+data = np.loadtxt(txt_path, delimiter=";", skiprows=1, usecols=[1, 2, 4])
+keithley_norm_factor = data[:, 2] * 10**8  # 1D array of factors per frame
+
+# 3. Get sorted TIFF files to ensure 1-to-1 index matching
+tiff_files = sorted(
+    [f for f in os.listdir(image_folder) if f.lower().endswith((".tiff", ".tif"))]
+)
+
+# List to accumulate 2D frames for 3D stack generation
+normalised_stack = []
+#Just for plotting purposes, not necessary for the normalisation
+# intensity_region_1 = data[:, 0]
+# intensity_region_2 = data[:, 1]
+
+
+# 4. Loop through images, normalize, and save individual zero-padded files
+for i, file in enumerate(tiff_files):
+    filepath = os.path.join(image_folder, file)
+    try:
+        image = tiff.imread(filepath).astype(np.float32)
+
+        # Normalize pixel values using the frame's specific Keithley factor
+
+        normalised_image = (image / keithley_norm_factor[i]).astype(np.float32)
+        # Accumulate frame into 3D stack list
+        normalised_stack.append(normalised_image)
+
+        # Save individual zero-padded ImageJ-compatible files (e.g., frame_0000.tif)
+        padded_filename = f"frame_{i:04d}.tif"
+        out_filepath = os.path.join(output_dir, padded_filename)
+        tiff.imwrite(out_filepath, normalised_image, imagej=True)
+
+    except Exception as e:
+        print(f"Error processing {file}: {e}")
+
+# 5. Save as a single 3D Multi-Page TIFF Stack (Direct Fiji Sequence Import)
+if normalised_stack:
+    stack_array = np.array(normalised_stack, dtype=np.float32)
+    stack_output_path = os.path.join(output_dir, f"stack_normalised_{index}.tif")
+    tiff.imwrite(stack_output_path, stack_array, imagej=True)
+    print(f"3D Stack saved to: {stack_output_path}")
+
+# 5. Calculate and Plot Normalised Region Spectra
+# normalised_spectrum_reg1 = intensity_region_1 / keithley_norm_factor
+# normalised_spectrum_reg2 = intensity_region_2 / keithley_norm_factor
+
+#Not necessary, just for understanding purposes
+# plt.figure(figsize=(8, 5))
+# plt.plot(normalised_spectrum_reg1, label="Region 1 Normalised")
+# plt.plot(normalised_spectrum_reg2, label="Region 2 Normalised")
+# plt.xlabel("Frame Index")
+# plt.ylabel("Normalised Intensity")
+# plt.legend()
+# plt.grid(True, linestyle="--", alpha=0.6)
+# plt.savefig(os.path.join(output_dir, f"normalised_spectra_{index}.png"), dpi=300)
+# plt.show()
