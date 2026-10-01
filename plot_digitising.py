@@ -2,8 +2,9 @@
 Insert plot screenshot, returns raw data
 
 Code written using Gemini Thinking Mode 3.6 on 16.09.2026
-"""
 
+User commands on line 212
+"""
 import cv2
 import numpy as np
 import pandas as pd
@@ -215,7 +216,7 @@ def linear_interpolation(pixel_bounds, calibrated_data):
 # ==========================================
 if __name__ == "__main__":
     # 1. Path to your screenshot
-    IMAGE_PATH = "Images\Plot Digitising\Dummy_Spectrum.png"
+    IMAGE_PATH = "Plot Digitising\Ru-Spectra.png"
     
     # 2. Extract the rectangular bounds of the spectrum
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
