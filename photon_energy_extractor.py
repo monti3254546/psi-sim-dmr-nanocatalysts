@@ -27,6 +27,7 @@ tiff_files = sorted(
     [f for f in os.listdir(datapath) if f.lower().endswith((".tiff", ".tif"))]
 )
 
+
 for file in tiff_files:
     filepath = os.path.join(datapath, file)
     with tiff.TiffFile(filepath) as tif:
@@ -46,7 +47,13 @@ for file in tiff_files:
 
         photon_energy_tfiles.append(energy)
 
-# 3. Save extracted TIFF energy and TXT energy directly to CSV
+# 3. extract intensity values from Tiff files and save to CSV
+intensity_values = []
+tiff_files = sorted(
+    [f for f in os.listdir(datapath) if f.lower().endswith((".tiff", ".tif"))]
+)
+
+# 4. Save extracted TIFF energy and TXT energy directly to CSV
 csv_path = os.path.join(final_datapath, final_filename)
 
 with open(csv_path, mode="w", newline="") as f:
