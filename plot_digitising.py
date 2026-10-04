@@ -14,13 +14,14 @@ from matplotlib.widgets import RectangleSelector
 
 
 
-def digitise_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="digitised.csv"):
+def digitise_spectrum(image_path, plot_area_pixels, axis_limits, colour=(0, 0, 0), output_csv="digitised.csv"):
     """
     Extracts data points from an image of a spectrum plot.
     
     :param image_path: Path to the screenshot.
     :param plot_area_pixels: Tuple of (x_min, x_max, y_min, y_max) defining the plot box in pixels.
     :param axis_limits: Tuple of (x_val_min, x_val_max, y_val_min, y_val_max) defining real-world axis values.
+    :param colour: RGB tuple (R, G, B)
     :param output_csv: Path to save the extracted data.
     """
     output_csv = image_path[0:-4] + "_digitised.csv"
@@ -34,20 +35,71 @@ def digitise_spectrum(image_path, plot_area_pixels, axis_limits, output_csv="dig
         raise ValueError("Image not found. Check the file path.")
     
     cropped_img = img[px_ymin:px_ymax, px_xmin:px_xmax]
-    
-    # 2. Convert to grayscale and apply a threshold to isolate the line
-    # Assuming a dark line on a light background. 
-    # If your line is colored, HSV color filtering would be better here.
-    gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
-    
+
+    # 2. RGB Euclidean Distance: Directly calculate how far each pixel's RGB values are from the sampled click point.
+
+    # 2.1 Standardize target color to 0-255 uint8 format
+    target_rgb = np.array(colour, dtype=float)
+    if np.max(target_rgb) <= 1.0:
+        target_rgb *= 255.0
+
+    # 2.2 Convert cropped image from OpenCV BGR to RGB
+    cropped_rgb = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2RGB).astype(float)
+
+    # 2.3 Compute Euclidean color distance for every pixel: sqrt((R-R0)^2 + (G-G0)^2 + (B-B0)^2)
+    color_distance = np.linalg.norm(cropped_rgb - target_rgb, axis=2)
+
+    # 2.4 Threshold pixels within a color tolerance radius (e.g., 50-80)
+    # Increase COLOR_TOLERANCE if the line is anti-aliased or faint
+    COLOR_TOLERANCE = 60
+    thresh = (color_distance < COLOR_TOLERANCE).astype(np.uint8) * 255
+
+    print(f"Detected {np.count_nonzero(thresh)} matching pixels.")
+
+    """
+    # 2. Filter image by the picked color using HSV color space
+    # Matplotlib sometimes returns colors as 0.0-1.0 floats. Scale to 0-255 for OpenCV.
+    if np.max(colour) <= 1.0:
+        target_rgb_255 = (np.array(colour) * 255).astype(np.uint8)
+    else:
+        target_rgb_255 = np.array(colour, dtype=np.uint8)
+
+    # Convert the single picked RGB color to HSV
+    # OpenCV requires a 3D array (1 pixel, 1 row, 3 channels) for color conversion
+    pixel_rgb_3d = np.uint8([[target_rgb_255]])
+    target_hsv = cv2.cvtColor(pixel_rgb_3d, cv2.COLOR_RGB2HSV)[0][0]
+
+    # Define tolerance window around the picked color.
+    # Hue (color) is tight, Saturation/Value are looser to account for line fading/anti-aliasing.
+    hue_tol = 50
+    sat_tol = 100
+    val_tol = 100
+
+    lower_bound = np.array([
+        max(0, target_hsv[0] - hue_tol),
+        max(0, target_hsv[1] - sat_tol),
+        max(0, target_hsv[2] - val_tol)
+    ])
+    upper_bound = np.array([
+        min(179, target_hsv[0] + hue_tol),  # OpenCV Hue caps at 179
+        min(255, target_hsv[1] + sat_tol),
+        min(255, target_hsv[2] + val_tol)
+    ])
+
+    # cv2.imread loads images in BGR format. Convert the cropped plot to HSV.
+    hsv_img = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2HSV)
+
+    # Create a binary mask where pixels matching the color range are 255 (white), else 0 (black)
+    thresh = cv2.inRange(hsv_img, lower_bound, upper_bound)
+    """
+
     # 3. Extract the line coordinates
     # For every x (column), find the y (row) where the line exists
     data_points = []
     
     height, width = thresh.shape
     for x_px in range(width):
-        # Find all y pixels in this column that are part of the line
+        # Find all y pixels in this column that are part of the masked colored line
         y_pixels = np.where(thresh[:, x_px] > 0)[0]
         
         if len(y_pixels) > 0:
@@ -108,6 +160,81 @@ def on_key_press(event):
 
 
 
+def extract_rect_and_color(image_path):
+    # State dictionary to hold variables modified by event callbacks
+    state = {'color': None}
+    
+    # 1. Load image and display plot
+    img = mpimg.imread(image_path)
+    fig, ax = plt.subplots(figsize=(12, 10))
+    ax.imshow(img)
+    ax.grid(True, color='k', linestyle='--', linewidth=.2)
+    ax.set_title("1. RIGHT-click on the desired spectrum line to pick its color.\n"
+                 "2. LEFT-click & drag to draw plot boundaries.\n"
+                 "3. Press ENTER to confirm and close.")
+
+    # -- Callbacks --
+    def onselect(eclick, erelease):
+        pass  # Rect bounds are handled by rect_selector.extents automatically
+
+    def on_key_press(event):
+        if event.key in ['enter', 'return', '\r', '\n']:
+            plt.close(event.canvas.figure)
+
+    def on_mouse_click(event):
+        # Button 3 is Right-Click
+        if event.button == 3 and event.inaxes == ax:
+            # Get integer pixel coordinates
+            x, y = int(event.xdata), int(event.ydata)
+            
+            # Ensure click is within image boundaries
+            if 0 <= y < img.shape[0] and 0 <= x < img.shape[1]:
+                # Extract RGB channels (ignores Alpha if present)
+                picked_color = img[y, x][:3]
+                state['color'] = picked_color
+                
+                # Update title to give user visual confirmation
+                ax.set_title(f"Color picked! RGB: {picked_color}\nNow draw boundaries and press ENTER.", 
+                             color='blue', fontweight='bold')
+                fig.canvas.draw_idle()
+                print(f"Registered right-click color at ({x}, {y}): {picked_color}")
+
+    # 2. Attach RectangleSelector (Left click only)
+    rect_selector = RectangleSelector(
+        ax, 
+        onselect,
+        useblit=True,
+        button=[1],              # Left mouse button only
+        minspanx=5, minspany=5,
+        props=dict(edgecolor='red', facecolor='red', alpha=0.2, fill=True),
+        interactive=True
+    )
+
+    # 3. Connect listeners BEFORE plt.show()
+    fig.canvas.mpl_connect('key_press_event', on_key_press)
+    fig.canvas.mpl_connect('button_press_event', on_mouse_click)
+
+    # Execution pauses here until window closes
+    plt.show()
+
+    # 4. Extract final outputs
+    xmin, xmax, ymin, ymax = rect_selector.extents
+    bounds = (int(xmin), int(xmax), int(ymin), int(ymax))
+    
+    print("\n" + "="*40)
+    print("FINAL EXTRACTION RESULTS:")
+    print(f"pixel bounds: {bounds}")
+    if state['color'] is not None:
+        print(f"  Target Line Color (RGB/RGBA): {state['color']}")
+    else:
+        print("  WARNING: No color was picked! (Did you right-click?)")
+    print("="*40)
+
+    return bounds, state['color']
+
+
+
+"""
 def extract_rect(image_path):
     # 1. Load image and display plot
     img = mpimg.imread(image_path)
@@ -143,6 +270,7 @@ def extract_rect(image_path):
     print("="*40)
 
     return (int(xmin), int(xmax), int(ymin), int(ymax))
+"""
 
 
 
@@ -216,6 +344,12 @@ def linear_interpolation(pixel_bounds, calibrated_data):
 # ==========================================
 if __name__ == "__main__":
     # 1. Path to your screenshot
+    """
+    print('\n')
+    IMAGE_PATH = "Plot Digitising" + "\\" + input("Please copy/paste the image's file name inside the Plot Digitising folder here:")
+    print('\n')
+    print(IMAGE_PATH)
+    """
     IMAGE_PATH = "Plot Digitising\Ru-Spectra.png"
     
     # 2. Extract the rectangular bounds of the spectrum
@@ -223,7 +357,7 @@ if __name__ == "__main__":
     
     #PIXEL_BOUNDS = (183, 3028, 17, 410)
 
-    PIXEL_BOUNDS = extract_rect(IMAGE_PATH)
+    PIXEL_BOUNDS, COLOUR = extract_rect_and_color(IMAGE_PATH)
     print('\n pixel bounds: ', PIXEL_BOUNDS, '\n')
     
     # 3. What do the edges of that pixel box represent in real units?
@@ -235,4 +369,4 @@ if __name__ == "__main__":
     AXIS_VALUES = linear_interpolation(PIXEL_BOUNDS, calibrated_data)
     
     # Run the extractor
-    digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES)
+    digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES, COLOUR)
