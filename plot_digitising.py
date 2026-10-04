@@ -14,7 +14,7 @@ from matplotlib.widgets import RectangleSelector
 
 
 
-def digitise_spectrum(image_path, plot_area_pixels, axis_limits, colour=(0, 0, 0), output_csv="digitised.csv"):
+def digitise_spectrum(image_path, plot_area_pixels, axis_limits, colour=(0, 0, 0), colour_tolerance = 60, output_csv="digitised.csv"):
     """
     Extracts data points from an image of a spectrum plot.
     
@@ -50,9 +50,9 @@ def digitise_spectrum(image_path, plot_area_pixels, axis_limits, colour=(0, 0, 0
     color_distance = np.linalg.norm(cropped_rgb - target_rgb, axis=2)
 
     # 2.4 Threshold pixels within a color tolerance radius (e.g., 50-80)
-    # Increase COLOR_TOLERANCE if the line is anti-aliased or faint
-    COLOR_TOLERANCE = 60
-    thresh = (color_distance < COLOR_TOLERANCE).astype(np.uint8) * 255
+    # Increase colour_tolerance if the line is anti-aliased or faint
+    #COLOR_TOLERANCE = 60
+    thresh = (color_distance < colour_tolerance).astype(np.uint8) * 255
 
     print(f"Detected {np.count_nonzero(thresh)} matching pixels.")
 
@@ -350,7 +350,7 @@ if __name__ == "__main__":
     print('\n')
     print(IMAGE_PATH)
     """
-    IMAGE_PATH = "Plot Digitising\Ru-Spectra.png"
+    IMAGE_PATH = "Plot Digitising\\Ni-Spectra.png"
     
     # 2. Extract the rectangular bounds of the spectrum
     # Format: (x_start, x_end, y_top, y_bottom) in pixels
@@ -369,4 +369,4 @@ if __name__ == "__main__":
     AXIS_VALUES = linear_interpolation(PIXEL_BOUNDS, calibrated_data)
     
     # Run the extractor
-    digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES, COLOUR)
+    digitise_spectrum(IMAGE_PATH, PIXEL_BOUNDS, AXIS_VALUES, COLOUR, colour_tolerance=30)
