@@ -75,13 +75,17 @@ for i in range(len(refs)):
 #Data path for Moritz
 #datapath = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20260918_Ni_Ru_AbsorptionSpectrum v5-real/"
 #Data path for Samuel
-datapath= "E:\\20260918_Ni_Ru_AbsorptionSpectrum v5-real"
+datapath= "E:\\20260918_Ni_Ru_AbsorptionSpectrum v5-real\\"
 #Path for new LCF data
 LCF_datapath="C:\\Users\\Samuel_Uni\\psi-sim-dmr-nanocatalysts\\LCF_results_new"
 datafolders = [
     name for name in os.listdir(datapath)
     if os.path.isdir(os.path.join(datapath, name))
 ]
+# Specify your single target folder name here (must exist inside `datapath`)
+# target_folder = "E:\\20260918_Ni_Ru_AbsorptionSpectrum v5-real\\20260918_1779_AbsortionSpectrum"  
+
+# datafolders = [target_folder]
 for i in range(len(datafolders)):
     sample_id = datafolders[i][9:13]
     try:
@@ -100,7 +104,7 @@ for i in range(len(datafolders)):
 
 
     for j in range(len(datafiles)):
-        #not datafiles[j].startswith('._") required on Windows
+        #datafiles[j].startswith('._") required on Windows
         if not datafiles[j].startswith("._") and (datafiles[j].endswith(".tif") or datafiles[j].endswith(".tiff")):
             data.append(
                 tiff.imread(
@@ -126,7 +130,6 @@ for i in range(len(datafolders)):
 
     # 2. Slice reference spectra ONCE to match masked dimensions
     refs_masked = refs_temp[mask, :]
-
     # Initialize output array
     coeffs = np.zeros((len(ref_names), data.shape[1], data.shape[2]))
 
@@ -142,7 +145,6 @@ for i in range(len(datafolders)):
             # Store coefficients
             coeffs[:, m, n] = coefficients
 
-
             #fitted = refs @ coefficients
             #plt.plot(energies, target)
             #plt.plot(globRefEnergy, fitted)
@@ -156,30 +158,37 @@ for i in range(len(datafolders)):
     
     #simple clipping mask for ni2+ maps to make it human readable
     #coeffs[0,:,:]=np.clip(coeffs[0,:,:],np.max(coeffs[0,:,:])*0.1,np.max(coeffs[0,:,:]*0.9))
-
+    k_0=0#coefficient 0
+    k_1=1#coefficient 1
+    k_2=2#coefficient 2
+    # if first:
+    #         print("select coefficients to plot")
+    #         input(k_1)
+    #         input(k_2)
+    #         first=False
     #If this idea does not work, just set values below a certain threshold to 0.
-    coeffs[0,:,:][coeffs[0,:,:]<np.max(coeffs[0,:,:])*0.025]=0 #try 0.05 or 0.1 
-    coeffs[1,:,:][coeffs[1,:,:]<np.max(coeffs[1,:,:])*0.025]=0
+    #coeffs[0,:,:][coeffs[0,:,:]<np.max(coeffs[0,:,:])*0.025]=0 #try 0.05 or 0.1 
+    #ni1
+    coeffs[k_0,:,:][coeffs[k_0,:,:]<np.max(coeffs[k_0,:,:])*0.025]=0
+    #ni2
+    coeffs[k_1,:,:][coeffs[k_1,:,:]<np.max(coeffs[k_1,:,:])*0.025]=0
+    #ni3
+    coeffs[k_2,:,:][coeffs[k_2,:,:]<np.max(coeffs[k_2,:,:])*0.025]=0
 
-    #try working with percentiles
-    #p10 = np.percentile(coeffs[0,:,:], 10)
-    #p90 = np.percentile(coeffs[0,:,:], 90)
-    # Set values OUTSIDE the 10th-90th range to 0
     #coeffs[0,:,:][(coeffs[0,:,:] < p10) | (coeffs[0,:,:] > p90)] = 0
-    
-    #plotting ratios by dividing thorugh the sum of coefficients from both maps
-    # ni_ratio_3=np.where(coeffs[1,:,:]!=0,coeffs[1, :, :] / (coeffs[0, :, :] + coeffs[1, :, :]),0)  # ni 3 ratio over total
-    # ni_ratio_2=np.where(coeffs[0,:,:]!=0,coeffs[0, :, :] / (coeffs[0, :, :] + coeffs[1, :, :]),0)  # ni 2 ratio over total
-    
+    sum_coeff=coeffs[k_1,:,:]+coeffs[k_2,:,:]
+    #would it be required to include coefficient 0 
+    #plotting ratios by dividing through the sum of coefficients from both maps
     #masking based on total signal
     # Check how many pixels have non-zero values in BOTH coefficients simultaneously
     overlap_pixels = np.zeros([coeffs.shape[1],coeffs.shape[2]])
-    overlap_pixels[:,:][((coeffs[0, :, :] > 0) & (coeffs[1, :, :] > 0))] = 1
-    tot_signal=coeffs[0,:,:]+coeffs[1,:,:]
-    ni_ratio_3=np.divide(coeffs[1,:,:],tot_signal,out=np.zeros_like(tot_signal),where=tot_signal!=0)
-    ni_ratio_2=np.divide(coeffs[0,:,:],tot_signal,out=np.zeros_like(tot_signal),where=tot_signal!=0)
+    overlap_pixels[:,:][((coeffs[k_1, :, :] > 0) & (coeffs[k_2, :, :] > 0))] = 1
+    #ratio_k_0 = np.divide(coeffs[k_0,:,:], sum_coeff, out=np.zeros_like(sum_coeff), where=sum_coeff != 0)
+    ratio_k_1 = np.divide(coeffs[k_1,:,:], sum_coeff, out=np.zeros_like(sum_coeff), where=sum_coeff != 0)
+    ratio_k_2 = np.divide(coeffs[k_2,:,:], sum_coeff, out=np.zeros_like(sum_coeff), where=sum_coeff != 0)
+
     #plotting ratios by using logartihmic scale
-    #ni_ratio = np.log10(coeffs[0, :, :] / coeffs[1, :, :])  # ni 2 over ni3
+    #ni_ratio = np.log10(coeffs[1, :, :] / coeffs[2, :, :])  # ni 3 over ni2
 
     # fig, axes = plt.subplots(1, 3, figsize=(12, 4))
     # for i in range(3):
@@ -195,36 +204,36 @@ for i in range(len(datafolders)):
     # plt.imsave(LCF_datapath + f"{sample_id}_map_ni3.png", coeffs[1, :, :])
     # plt.imsave(LCF_datapath + f"{sample_id}_map_ni2-3.png", ni_ratio)
     # #For Windows
-    if first:
-        print("Press enter if you checked file destination")
-        input()
-        first=False
+    
     #for multiple plots
-    fig, ax=plt.subplots(1,5,figsize=(12,4))
-    im1=ax[0].imshow(coeffs[0,:,:])
-    ax[0].title.set_text("Ni2+")
-    im2=ax[1].imshow(coeffs[1,:,:])
-    ax[1].title.set_text("Ni3+")
-    im3=ax[2].imshow(ni_ratio_3)
-    ax[2].title.set_text("Ni3+/sum coefficients")
-    im4=ax[3].imshow(ni_ratio_2)
-    ax[3].title.set_text("Ni2+/sum coefficients")
-    im5=ax[4].imshow(overlap_pixels)
-    ax[4].title.set_text("Overlapping pixels")
+    fig, ax=plt.subplots(2,3,figsize=(12,4))
+    im1=ax[0,0].imshow(coeffs[k_0,:,:])
+    ax[0,0].title.set_text(f"Ni[{k_0+1}+]")
+    im2=ax[0,1].imshow(coeffs[k_1,:,:])
+    ax[0,1].title.set_text(f"Ni[{k_1+1}+]")
+    im3=ax[0,2].imshow(coeffs[k_2,:,:])
+    ax[0,2].title.set_text(f"Ni[{k_2+1}+]")
+    im4=ax[1,0].imshow(ratio_k_1)
+    ax[1,0].title.set_text(f"Ni[{k_1+1}+] / coefficients 2,3")
+    im5=ax[1,1].imshow(ratio_k_2)
+    ax[1,1].title.set_text(f"Ni[{k_2+1}+] / coefficients 2,3")
+    im6=ax[1,2].imshow(overlap_pixels)
+    ax[1,2].title.set_text(f"Overlapping pixels of {k_1+1} and {k_2+1}")
     fig.suptitle(f"{sample_id}")
-    fig.colorbar(im1,ax=ax[0],fraction=0.046,pad=0.04)
-    fig.colorbar(im2,ax=ax[1],fraction=0.046,pad=0.04)
-    fig.colorbar(im3,ax=ax[2],fraction=0.046,pad=0.04)
-    fig.colorbar(im4,ax=ax[3],fraction=0.046,pad=0.04)
-    fig.colorbar(im5,ax=ax[4],fraction=0.046,pad=0.04)
+    #im3 needs to be replaced afterwards
+    fig.colorbar(im1,ax=ax[0,0],fraction=0.046,pad=0.04)
+    fig.colorbar(im2,ax=ax[0,1],fraction=0.046,pad=0.04)
+    fig.colorbar(im3,ax=ax[0,2],fraction=0.046,pad=0.04)
+    fig.colorbar(im4,ax=ax[1,0],fraction=0.046,pad=0.04)
+    fig.colorbar(im5,ax=ax[1,1],fraction=0.046,pad=0.04)
+    fig.colorbar(im6,ax=ax[1,2],fraction=0.046,pad=0.04)
     #for single plot
     # fig,ax=plt.subplots(figsize=(4,4))
     # ax.imshow(coeffs[0,:,:])
     # ax.title.set_text(f"{sample_id} (Ni2+)")
     # fig.colorbar(ax.imshow(coeffs[0,:,:]),ax=ax,fraction=0.046,pad=0.04)
     plt.tight_layout()
-
-    plt.savefig(LCF_datapath + f"\\mask_peaks\\{sample_id}_maps.png",dpi=300)
+    plt.savefig(LCF_datapath + f"\\corrected_maps_n2_n3\\{sample_id}.png",dpi=300)
     #plt.imsave(LCF_datapath + f"\\mask_setup\\{sample_id}_map_ni2.png", coeffs[0, :, :])
     # plt.imsave(LCF_datapath + f"\\initial_setup\\{sample_id}_map_ni3.png", coeffs[1, :, :])
     # plt.imsave(LCF_datapath + f"\\initial_setup\\{sample_id}_map_ni2-3.png", ni_ratio)
