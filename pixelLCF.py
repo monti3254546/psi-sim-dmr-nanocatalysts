@@ -24,7 +24,7 @@ for i in reffiles:
             skiprows=0
         )
 
-        ref_energies.append(ref[:, 0] + 12.8)  #energy grid. shift systematic error of 12.5 eV
+        ref_energies.append(ref[:, 0] + 12.8)  #energy grid. shift systematic error of 12.8 eV for Ni, likely different for Ru
         refAppend = ref[:, 1]   #spectra
         refAppend -= np.min(refAppend)
         #refAppend /= np.max(refAppend)
@@ -34,8 +34,9 @@ for i in reffiles:
 
 
 for i in range(len(refs)):
-    refs[i] = sp.ndimage.gaussian_filter(refs[i], sigma = 45)   #sigma = 45 seems to yield a similar degree of detail to the data --> best for fitting
+    refs[i] = sp.ndimage.gaussian_filter(refs[i], sigma = 0)   #sigma = 45 seems to yield a similar degree of detail to the data --> best for fitting
     plt.plot(ref_energies[i], refs[i])
+
 plt.show()
 
 
@@ -126,33 +127,33 @@ for i in range(len(datafolders)):
             coeffs[:, m, n] = coefficients
 
 
-            #fitted = refs @ coefficients
-            #plt.plot(energies, target)
-            #plt.plot(globRefEnergy, fitted)
-            #print(coefficients)
-            #plt.show()
+            fitted = refs @ coefficients
+            plt.plot(energies, target)
+            plt.plot(globRefEnergy, fitted)
+            print(coefficients)
+            plt.show()
             
     # Calculate ratio maps
     for k in range(coeffs.shape[0]):
-        coeffs[k, :, :] = np.clip(coeffs[k, :, :], 0, np.percentile(coeffs[k, :, :], 99.9))
-        #plt.imsave(datapath + f"oxideMaps/{sample_id}_map_{ref_names[k]}.png", coeffs[k, :, :])
+        coeffs[k, :, :] = np.log(np.clip(coeffs[k, :, :], 0, np.percentile(coeffs[k, :, :], 99.9)))
+    #    plt.imsave(datapath + f"oxideMaps/{sample_id}_mapLog_{ref_names[k]}.png", coeffs[k, :, :])
 
-    #ni_ratio = coeffs[0, :, :] / coeffs[1, :, :]    # ni 2 over ni3
-    #ni_ratio = np.nan_to_num(ni_ratio)
-    #ni_ratio = np.clip(ni_ratio, 0, 10)
+    ni_ratio = coeffs[0, :, :] / coeffs[1, :, :]    # ni 2 over ni3
+    ni_ratio = np.nan_to_num(ni_ratio)
+    ni_ratio = np.clip(ni_ratio, 0, 10)
+
+    # Plot Coeff 0, Coeff 1, and Ratio side-by-side
+    titles = ["Coeff 0 (Ni2+)", "Coeff 1 (Ni3+)", "Ni2+ / Ni3+ Ratio"]
+    maps = [coeffs[0, :, :], coeffs[1, :, :], ni_ratio]
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+    for i in range(3):
+        im = axes[i].imshow(maps[i])
+        axes[i].set_title(titles[i])
+        fig.colorbar(im, ax=axes[i], fraction=0.046, pad=0.04)
 #
-    ## Plot Coeff 0, Coeff 1, and Ratio side-by-side
-    #titles = ["Coeff 0 (Ni2+)", "Coeff 1 (Ni3+)", "Ni2+ / Ni3+ Ratio"]
-    #maps = [coeffs[0, :, :], coeffs[1, :, :], ni_ratio]
-#
-    #fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-    #for i in range(3):
-    #    im = axes[i].imshow(maps[i])
-    #    axes[i].set_title(titles[i])
-    #    fig.colorbar(im, ax=axes[i], fraction=0.046, pad=0.04)
-#
-    #plt.tight_layout()
-    #plt.close()
+    plt.tight_layout()
+    plt.close()
 
     #plt.imsave(datapath + f"{sample_id}_map_ni2.png", coeffs[0, :, :])
     #plt.imsave(datapath + f"{sample_id}_map_ni3.png", coeffs[1, :, :])

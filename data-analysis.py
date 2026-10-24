@@ -40,6 +40,7 @@ fig, ax = plt.subplots(figsize=(6,6))
 for i in range(len(datafolders)):
     print(datafolders[i][9:13])
 
+
     try:
         path = os.path.join(datapath, datafolders[i])
         tiffpath = os.path.join(path + "/drift-correction")
@@ -169,14 +170,14 @@ for i in range(len(datafolders)):
     plt.plot(energies, newspec2, label = "processed filtered")
     plt.plot(energies_full, spec_raw / np.max(spec_raw), label = "raw")
     plt.legend()
+    plt.show()
     #plt.savefig(datapath + f"{sample_id}_image2.png", dpi=300)
-    plt.close()
 
-    #image = np.sum(data, axis = 0)
-    #image[:, :10] = 0
-    #image /= np.max(image)
-    #plt.imshow(image)
-    #plt.close()
+    image = np.sum(data, axis = 0)
+    image[:, :10] = 0
+    image /= np.max(image)
+    plt.imshow(image)
+    plt.show()
     #isNi = np.all(energies > 600)
     
 
