@@ -1,3 +1,8 @@
+"""
+Filtert die ganzen kaputten Pixel und sonstige Defekte in den Daten raus.
+Macht background correction
+(Stand: 27.10.2026)
+"""
 import numpy as np
 import pandas as pd
 import tifffile as tiff

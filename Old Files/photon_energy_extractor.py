@@ -1,3 +1,7 @@
+"""
+
+(Stand: 27.10.2026)
+"""
 #extract photon energy from TIFF file headers and txt files and save to CSV
 import csv
 import os

@@ -1,3 +1,12 @@
+"""
+White Line Ratios:
+Moritz hat die Kalibration begonnen zu implementieren.
+Die L2+L3 Peak-Struktur werden White Lines genannt.
+Ratios der Integrale bilden.
+
+Noch nicht fertig.
+(Stand: 27.10.2026)
+"""
 import numpy as np
 import os
 import tifffile as tiff
