@@ -1,3 +1,8 @@
+"""
+Linear Combination Fitting.
+Aktuelles File (Samuel)
+(Stand: 27.10.2026)
+"""
 from matplotlib import lines
 import numpy as np
 import os

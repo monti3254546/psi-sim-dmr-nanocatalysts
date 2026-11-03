@@ -1,3 +1,8 @@
+"""
+Ein Readback-Tool für ROI-Selector.
+Programmiert von Moritz mithilfe von ChatCPT.
+(Stand: 27.10.2026)
+"""
 import csv
 import os
 import numpy as np

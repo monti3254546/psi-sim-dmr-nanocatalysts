@@ -1,9 +1,9 @@
 """"
 Insert plot screenshot, returns raw data
 
-Code written using Gemini Thinking Mode 3.6 on 16.09.2026
+Code written by Tim Elsener using Gemini Thinking Mode 3.6 on 16.09.2026
 
-User commands on line 212
+User commands on line 345
 """
 import cv2
 import numpy as np

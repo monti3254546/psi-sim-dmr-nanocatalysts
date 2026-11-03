@@ -1,4 +1,8 @@
-
+"""
+Eine der frühesten Versionen, um Energiespektra zu plotten.
+Hat auch eine Art L3:L2-Logik, aber mit anderer Implementierung.
+(Stand: 27.10.2026)
+"""
 import os
 import matplotlib.pyplot as plt
 import numpy as np

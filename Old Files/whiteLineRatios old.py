@@ -1,3 +1,9 @@
+"""
+Ursprüngliche Version der White Line Ratio Implementierung.
+Nicht mehr aktuell.
+Der auskommentierte Teil unten implementiert die Ratios.
+(Stand: 27.10.2026)
+"""
 import os
 import matplotlib.pyplot as plt
 import numpy as np

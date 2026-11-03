@@ -1,3 +1,10 @@
+"""
+Debugging für den Monochromator.
+Haben wir vermutlich für Armin programmiert, um zu testen,
+ob der Monochromator sinnvolle Dinge tut.
+Alte Version
+(Stand: 27.10.2026)
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colormaps

@@ -1,3 +1,8 @@
+"""
+Filtert die ganzen kaputten Pixel und sonstige Defekte in den Daten raus.
+Macht background correction
+(Stand: 27.10.2026)
+"""
 import numpy as np
 import pandas as pd
 import tifffile as tiff
@@ -6,14 +11,23 @@ import random
 import scipy as sp
 import matplotlib.pyplot as plt
 
+# user
+username = 'Moritz'    # 'Moritz' or 'Tim'
+
 
 ### IMPORT DATA
-datapath = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20260918_Ni_Ru_AbsorptionSpectrum v5-real/"
-#problem: in 1776, there is a gap, but also a different issue that causes not being able to bridge the gap by interpolation cause there is very few data behind
-datafolders = [
-    name for name in os.listdir(datapath)
-    if os.path.isdir(os.path.join(datapath, name))
-]
+if username == 'Moritz':
+    datapath = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/20260918_Ni_Ru_AbsorptionSpectrum v5-real/"
+    #problem: in 1776, there is a gap, but also a different issue that causes not being able to bridge the gap by interpolation cause there is very few data behind
+    datafolders = [
+        name for name in os.listdir(datapath)
+        if os.path.isdir(os.path.join(datapath, name))
+    ]
+
+elif username == 'Tim':
+    datapath = None
+    datafolders = []
+
 lines = [(463.5, 471.5), (485.5, 492.5), (864, 872), (882, 887)]
 
 cut_regions = {
@@ -31,7 +45,11 @@ cut_regions = {
 
 
 # CSV file
-roi_path = os.path.join("/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/roi_bounds.csv")
+if username == 'Moritz':
+    roi_path = os.path.join("/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/roi_bounds.csv")
+
+elif username == 'Tim':
+    roi_path = None
 
 
 # Create figure with one plot
@@ -76,6 +94,7 @@ for i in range(len(datafolders)):
     sample_id = int(datafolders[i][9:13])
     gapMask = np.ones_like(energies, dtype=bool)
     trim_mask = np.ones_like(energies, dtype=bool)
+    
     for condition in cut_regions.get(sample_id, []):
         if condition[0] == "above":
             trim_mask &= (energies <= condition[1])

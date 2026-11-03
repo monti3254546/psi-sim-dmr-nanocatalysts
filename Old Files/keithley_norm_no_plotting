@@ -1,3 +1,7 @@
+"""
+Normalisierung, alter Stand. Nicht mehr benötigt aktuell.
+(Stand: 27.10.2026)
+"""
 import os
 import numpy as np
 import tifffile as tiff

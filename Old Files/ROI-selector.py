@@ -1,3 +1,8 @@
+"""
+Tool, um in Bildern schnell ein Background und ein ROI auszuwählen.
+Spuckt anschliessend ein csv-File aus.
+(Stand: 27.10.2026)
+"""
 import csv
 import numpy as np
 import pandas as pd

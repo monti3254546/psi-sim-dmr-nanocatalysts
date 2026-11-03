@@ -1,3 +1,8 @@
+"""
+Vermutlich das Folgeskript von photon_energy_extractor.py
+Vergleich zwischen Input und Output Energy des Monochromators.
+(Stand: 27.10.2026)
+"""
 import os
 import matplotlib.pyplot as plt
 import numpy as np
