@@ -30,18 +30,10 @@ elif username == 'Tim':
 
 reffiles = sorted(os.listdir(referencePath))
 
-<<<<<<< HEAD
 run = "ni"
 refs = []
 ref_energies = []
 ref_names = []
-=======
-run = "ru"  # 'ru' or 'ni' (?)
-refs = []   # spectra
-ref_energies = []   # energies
-ref_names = []  # file names
-
->>>>>>> c85ee5d4d10853b7305374a2bc0592e71d1af72a
 for i in reffiles:
     if i.endswith(".txt") and run in i: # only 'ru' or 'ni' .txt files
         print(i)
@@ -53,21 +45,15 @@ for i in reffiles:
 
         ref_energies.append(np.array(ref[:, 0]))
         refAppend = ref[:, 1]   #spectra
-<<<<<<< HEAD
         refAppend -= np.min(refAppend)
         refAppend = np.array(refAppend)
         refs.append(refAppend / np.max(refAppend))
-=======
-        refAppend -= np.min(refAppend)  # rough baseline correction (set minimum to zero)
-        refs.append(np.array(refAppend))
->>>>>>> c85ee5d4d10853b7305374a2bc0592e71d1af72a
         ref_names.append(i)
 
 # Load the single CSV file containing all 3 spectra
 csv_path = os.path.join(referencePath, "Reference_EELS_spectra.csv")
 df = pd.read_csv(csv_path, delimiter=";")
 
-<<<<<<< HEAD
 # Loop over each spectrum pair (Cols 0&1, 2&3, 4&5)
 for i in range(2, 6, 2):
     pair_data = df.iloc[:, [i, i+1]].dropna().to_numpy()
@@ -83,10 +69,6 @@ for i in range(2, 6, 2):
 
 
 sepE_ni = 864
-=======
-# separating the spectrum into L3- and L2-edge regions
-sepE_ni = 865
->>>>>>> c85ee5d4d10853b7305374a2bc0592e71d1af72a
 sepE_ru = 479
 
 sepE = sepE_ni if run == "ni" else sepE_ru
