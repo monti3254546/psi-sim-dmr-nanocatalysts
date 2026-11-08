@@ -16,10 +16,10 @@ import copy
 import pandas as pd
 
 # user
-username = 'Moritz'    # 'Moritz' or 'Tim'
+username = 'Tim'    # 'Moritz' or 'Tim'
 
 # -------------------- #
-#  REFERENCE IMPORT
+#  REFERENCE & DATA IMPORT
 # -------------------- #
 
 if username == 'Moritz':
@@ -27,6 +27,11 @@ if username == 'Moritz':
 
 elif username == 'Tim':
     referencePath = "activeRefs/"
+    datapath = "C:\Users\Tim Elsener ETHZ\OneDrive\Dokumente\04_Studium\2_Vorlesungen\Projekte & Praktika\PSI-Projekt (Sem5)\Datenexport USB-Stick 30.10.2026"
+    datafolders = [
+            name for name in os.listdir(datapath)
+            if os.path.isdir(os.path.join(datapath, name))
+        ]
 
 # extracting reference file data
 reffiles = sorted(os.listdir(referencePath))
@@ -38,7 +43,7 @@ ref_energies = []   # energies
 ref_names = []      # names
 for i in reffiles:
     if i.endswith(".txt") and run in i: # only 'ru' or 'ni' .txt files
-        print(i)
+        #print(i)
         ref = np.loadtxt(
             os.path.join(referencePath, i),
             delimiter=",",
@@ -79,7 +84,8 @@ sepE_ni = 864
 sepE_ru = 479
 
 sepE = sepE_ni if run == "ni" else sepE_ru
-lines = [(852, 864), (870, 877)]
+#lines = [(852, 864), (870, 877)]    # old conditions?
+lines = [(463.5, 471.5), (485.5, 492.5), (864, 872), (882, 887)]
 
 def eels_atan_fit(x, a, c, e):
     return a*np.arctan((x - 855)) + c * np.arctan((x - 872)) + e
@@ -113,9 +119,9 @@ plt.show()
 
 
 # -------------------- #
-# IMPORTING EXPERIMENTAL DATA
+# IMPORTING EXPERIMENTAL DATA & PROCESSING
 # -------------------- #
-#TODO: Replace "datafolders", "datapath", and "cut_regions" with something reasonable (see "data-analysis.py")
+#DONE: Replace "datafolders", "datapath", and "cut_regions" with something reasonable (see "data-analysis.py")
 #TODO: Import data spectra without np.abs() from Moritz's OneDrive (we switched from iCloud)
 #TODO: Test run with only one experimental data stack
 #TODO: Compare WLR with references (linear interpolation between oxidation states)
@@ -123,15 +129,32 @@ plt.show()
 #TODO: Do this for all experiments (all stacks)
 #TODO: Make a nice overview (plots) for all experiments comparing it to other approaches?<
 
-# data preparation: imports all data & saves in arrays
-for i in range(len(datafolders)):
-    print(datafolders[i][9:13])
+# dictionary containing special conditions
+cut_regions = {
+    1776: [("above", 490)],
+    1792: [("below", 852), ("above", 891)],
+    1768: [("above", 889)],
+    1780: [("above", 889)],
+    1761: [("between", 474, 479)],
+    1787: [("between", 869.2, 872)],
+    1781: [("point", 866.8)],
+    1756: [("between", 867.8, 868.8)],
+    1782: [("point", 863)]
+}
+
+
+# -------------------- #
+# DATA PREPARATION & CALCULATING WLRs
+# -------------------- #
+
+for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_AbsortionSpectrum"
+    #print(datafolders[i][9:13])
 
 
     try:
         path = os.path.join(datapath, datafolders[i])
-        tiffpath = os.path.join(path + "/drift-correction")
-        datafiles = sorted(os.listdir(tiffpath))
+        tiffpath = os.path.join(path + "/background-corrected")
+        datafiles = sorted(os.listdir(tiffpath))    # list containing the tiff stack
     except FileNotFoundError:
         print("no drift correction yet, continuing")
         continue
@@ -141,7 +164,7 @@ for i in range(len(datafolders)):
 
     data = []
 
-    for j in range(len(datafiles)):
+    for j in range(len(datafiles)): # go through all datafiles in one tiff stack
         if datafiles[j].endswith(".tif") or datafiles[j].endswith(".tiff"):
             data.append(
                 tiff.imread(
@@ -150,11 +173,11 @@ for i in range(len(datafolders)):
             )
 
 
-    data = np.array(data)
+    data = np.array(data)   # np array containing the extracted tiff image information. Each element corresponds to one tiff file.
 
     energies = np.loadtxt(path + "/scan_1.txt", delimiter=";", skiprows=1, usecols=0)
     keithley = np.loadtxt(path + "/scan_1.txt", delimiter=";", skiprows=1, usecols=4)
-    print(data.shape)
+    #print(data.shape)
     spec_raw = np.sum(data, axis = (1, 2))
     
     data /= keithley[:, None, None]
@@ -164,7 +187,7 @@ for i in range(len(datafolders)):
     gapMask = np.ones_like(energies, dtype=bool)
     trim_mask = np.ones_like(energies, dtype=bool)
     
-    for condition in cut_regions.get(sample_id, []):
+    for condition in cut_regions.get(sample_id, []):    # get all special conditions for certain experiments that show particularly noisy pixels
         if condition[0] == "above":
             trim_mask &= (energies <= condition[1])
 
@@ -181,16 +204,19 @@ for i in range(len(datafolders)):
     energies = energies[trim_mask]
     gapMask = gapMask[trim_mask]
 
+    # mask out the actual L3 and L2 peaks
     mask = np.ones_like(energies, dtype=bool)
     for low, high in lines:
         mask &= ~((energies >= low) & (energies <= high))
 
     data_patched = np.zeros((energies.shape[0], data.shape[1], data.shape[2]))
     data_corr = np.zeros((energies.shape[0], data.shape[1], data.shape[2])) #background corrected data
+
+    # pixel-by-pixel gap petching
     for m in range(data.shape[1]):
-        print(m)
+        #print(m)
         for n in range(data.shape[2]):
-            pxspec = data[:, m, n].copy()
+            pxspec = data[:, m, n].copy()   # 1D energy spectrum
             pxspec = pxspec[trim_mask]
 
             pxspec_patched = pxspec.copy()
@@ -204,7 +230,8 @@ for i in range(len(datafolders)):
                     left = valid_idx[valid_idx < idx][-4:]
                     right = valid_idx[valid_idx > idx][:4]
                     neighbors = np.concatenate([left, right])
-                    
+
+                    # smoothly extrapolate the missing datapoints using a 3rd-degree polynomial fit
                     if len(neighbors) > 3:
                         # Fit a cubic local baseline through surrounding valid data
                         coeffs = np.polyfit(energies[neighbors], pxspec[neighbors], deg=3)
@@ -212,8 +239,9 @@ for i in range(len(datafolders)):
             data_patched[:, m, n] = pxspec_patched
             pxspec = pxspec_patched.copy()
 
+            # background fitting using a 5th-degree polynomial fit
             bgfit = np.polyfit(energies[mask], pxspec[mask], 5)
-            pxspec_corr = pxspec - np.polyval(bgfit, energies)
+            pxspec_corr = pxspec - np.polyval(bgfit, energies)  # subtract 5th-degree polynomial fit from the entire spectrum
 
             data_corr[:, m, n] = pxspec_corr
             #plt.plot(energies, pxspec_corr)
@@ -227,7 +255,8 @@ for i in range(len(datafolders)):
     validDataMask = ~invalidDataMask    #1 for all valid pixels
     validDataMask = sp.ndimage.binary_fill_holes(validDataMask)
     data_corr[:, ~validDataMask] = 0
-    data_corr = np.abs(data_corr)  #set all negative values to zero
+    #data_corr = np.abs(data_corr)  #setting all negative values to zero is bad for the WLR integration purpose!
+
     #map = np.zeros((data_corr.shape[1], data_corr.shape[2]))
     #for m in range(data_corr.shape[1]):
     #    print(m)
@@ -242,18 +271,28 @@ for i in range(len(datafolders)):
     #plt.show()
     
     
-    
+    """
     out_dir = path + "/background-corrected/"
     os.makedirs(out_dir, exist_ok=True)
     stack_to_save = data_corr.astype('float32')
     for i, frame in enumerate(stack_to_save):
         pass
         #tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
+    """
+
+    # calculate white line ratios (WLRs)
 
 
+    # -------------------- #
+    # PLOTTING EXPERIMENTAL & REFERENCE WLRs
+    # -------------------- #
+
+
+    """
+    # average spectrum over all pixels
     newspec = np.mean(data_corr, axis = (1, 2))
     newspec /= np.max(newspec)
-    newspec2 = sp.signal.savgol_filter(newspec, 11, 3)  # Golay filter?
+    newspec2 = sp.signal.savgol_filter(newspec, 11, 3)  # Savitzky-Golay filter to smoothen it out
     plt.plot(energies, newspec, label = "processed")
     plt.plot(energies, newspec2, label = "processed filtered")
     plt.plot(energies_full, spec_raw / np.max(spec_raw), label = "raw")
@@ -267,13 +306,4 @@ for i in range(len(datafolders)):
     plt.imshow(image)
     plt.show()
     #isNi = np.all(energies > 600)
-    
-
-# -------------------- #
-# CALCULATING EXPERIMENTAL DATA WLRs
-# -------------------- #
-
-
-# -------------------- #
-# PLOTTING EXPERIMENTAL & REFERENCE WLRs
-# -------------------- #
+    """
