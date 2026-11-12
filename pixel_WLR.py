@@ -19,7 +19,7 @@ import pandas as pd
 username = 'Tim'    # 'Moritz' or 'Tim'
 
 # -------------------- #
-#  REFERENCE & DATA IMPORT
+#  REFERENCE & EXPERIMENTAL DATA IMPORT
 # -------------------- #
 
 if username == 'Moritz':
@@ -27,7 +27,8 @@ if username == 'Moritz':
 
 elif username == 'Tim':
     referencePath = "activeRefs/"
-    datapath = "C:\Users\Tim Elsener ETHZ\OneDrive\Dokumente\04_Studium\2_Vorlesungen\Projekte & Praktika\PSI-Projekt (Sem5)\Datenexport USB-Stick 30.10.2026"
+    # raw string to prevent unicodeescape syntax error
+    datapath = r"C:\Users\Tim Elsener ETHZ\OneDrive\Dokumente\04_Studium\2_Vorlesungen\Projekte & Praktika\PSI-Projekt (Sem5)\Datenexport USB-Stick 30.10.2026"
     datafolders = [
             name for name in os.listdir(datapath)
             if os.path.isdir(os.path.join(datapath, name))
@@ -61,8 +62,10 @@ for i in reffiles:
 csv_path = os.path.join(referencePath, "Reference_EELS_spectra.csv")
 df = pd.read_csv(csv_path, delimiter=";")
 
+num_cols = df.shape[1]  # number of columns
+
 # Loop over each spectrum pair (Cols 0&1, 2&3, 4&5)  for ni in "Reference_EELS_spectra.csv"
-for i in range(2, 6, 2):
+for i in range(2, num_cols - 1, 2):
     pair_data = df.iloc[:, [i, i+1]].dropna().to_numpy()
     
     ref_energies.append(np.array(pair_data[:, 0]))
@@ -90,7 +93,7 @@ lines = [(463.5, 471.5), (485.5, 492.5), (864, 872), (882, 887)]
 def eels_atan_fit(x, a, c, e):
     return a*np.arctan((x - 855)) + c * np.arctan((x - 872)) + e
 
-for i in range(len(refs)):
+for i in range(len(refs)):  # 'refs' is a list containing the reference spectra's intensities
     energies = ref_energies[i]
     mask = np.ones_like(energies, dtype=bool)
     for low, high in lines:
@@ -102,6 +105,10 @@ for i in range(len(refs)):
         plt.plot(energies, refs[i])
     #plt.plot(energies, eels_atan_fit(energies, *popt))
     #plt.plot(energies, refs[i])
+    plt.axvline(x=sepE, color='r', linestyle='--', label='Seperation Energy')
+    plt.legend()
+    plt.grid()
+    plt.title('Reference spectrum: ' + ref_names[i])
 plt.show()
 
 ox_states = []
@@ -112,18 +119,23 @@ for i in range(len(refs)):  # remember: "refs" contains the intensities
     edge2 = np.sum(refs[i][ref_energies[i] < sepE])
     WLR = edge3 / edge2
     ox_states.append(int(ref_names[i][2]))
-    wlrs.appens(WLR)
+    wlrs.append(WLR)
 
-plt.scatter(ox_states, WLR)
+plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
+plt.legend()
+plt.title(f'Reference spectra WLRs using {sepE} as separation energy')
 plt.show()
 
 
+
 # -------------------- #
-# IMPORTING EXPERIMENTAL DATA & PROCESSING
+# PROCESSING EXPERIMENTAL DATA
 # -------------------- #
+
 #DONE: Replace "datafolders", "datapath", and "cut_regions" with something reasonable (see "data-analysis.py")
 #TODO: Import data spectra without np.abs() from Moritz's OneDrive (we switched from iCloud)
 #TODO: Test run with only one experimental data stack
+#TODO: Speed up nested for m... & for n... loop (see answer Gemini Pro)
 #TODO: Compare WLR with references (linear interpolation between oxidation states)
 #TODO: Make a chemical map showing the WLR, assigning certain WLR values distinct oxidation states
 #TODO: Do this for all experiments (all stacks)
@@ -143,34 +155,35 @@ cut_regions = {
 }
 
 
-# -------------------- #
-# DATA PREPARATION & CALCULATING WLRs
-# -------------------- #
-
 for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_AbsortionSpectrum"
     #print(datafolders[i][9:13])
+
+    if i > 0:  # only first folder data (testing purposes only)
+        break
 
 
     try:
         path = os.path.join(datapath, datafolders[i])
-        tiffpath = os.path.join(path + "/background-corrected")
-        datafiles = sorted(os.listdir(tiffpath))    # list containing the tiff stack
+        tiffpath = os.path.join(path, "background-corrected")
+        
+        # Filter for valid, non-hidden TIFF files immediately
+        datafiles = sorted([
+            f for f in os.listdir(tiffpath)
+            if not f.startswith(".") and f.lower().endswith((".tif", ".tiff"))
+        ])
     except FileNotFoundError:
         print("no drift correction yet, continuing")
         continue
+        
     if len(datafiles) < 5:
         print("scan aborted, continuing")
         continue
 
-    data = []
-
-    for j in range(len(datafiles)): # go through all datafiles in one tiff stack
-        if datafiles[j].endswith(".tif") or datafiles[j].endswith(".tiff"):
-            data.append(
-                tiff.imread(
-                    os.path.join(tiffpath, datafiles[j])
-                ).astype(float)
-            )
+    # Since datafiles is already strictly valid TIFFs, the loop becomes much cleaner (see Gemini):
+    data = [
+        tiff.imread(os.path.join(tiffpath, filename)).astype(float)
+        for filename in datafiles
+    ]
 
 
     data = np.array(data)   # np array containing the extracted tiff image information. Each element corresponds to one tiff file.
@@ -211,6 +224,9 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
 
     data_patched = np.zeros((energies.shape[0], data.shape[1], data.shape[2]))
     data_corr = np.zeros((energies.shape[0], data.shape[1], data.shape[2])) #background corrected data
+    """
+    :param data_corr: 3-dimensional np array. Format: np.array((energy axis, pixel y, pixel x))
+    """
 
     # pixel-by-pixel gap petching
     for m in range(data.shape[1]):
@@ -280,7 +296,25 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
         #tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
     """
 
-    # calculate white line ratios (WLRs)
+    # -------------------- #
+    #   CALCULATING WLRs
+    # -------------------- #
+
+    edge_high_map = np.sum(data_corr[energies > sepE, :, :], axis=0)
+    edge_low_map = np.sum(data_corr[energies < sepE, :, :], axis=0)
+
+    # Avoid division by zero on masked/empty pixels
+    wlr_map = np.divide(
+        edge_high_map, 
+        edge_low_map, 
+        out=np.zeros_like(edge_high_map), 
+        where=edge_low_map != 0
+    )
+
+    plt.title('WLR map')
+    plt.imshow(wlr_map)
+    plt.colorbar()
+    plt.show()
 
 
     # -------------------- #
@@ -307,3 +341,5 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     plt.show()
     #isNi = np.all(energies > 600)
     """
+
+print('\nDone.')
