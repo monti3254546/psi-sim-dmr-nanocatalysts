@@ -130,6 +130,7 @@ plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
 plt.xlabel('Oxidation state')
 plt.ylabel('White line ratio (L3/L2)')
 plt.legend()
+plt.grid()
 plt.title(f'Reference spectra WLRs using {sepE} as separation energy')
 print('\nPlotted WLRs.')
 plt.show()
@@ -166,7 +167,7 @@ cut_regions = {
 for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_AbsortionSpectrum"
 
     i=35 #TODO: remove this so that all experimental stacks are investigated.
-    print(f'\nProcessing experiment {datafolders[i][9:13]}...') # experiment number
+    print(f'\nProcessing experiment {datafolders[i][9:13]}...\n') # experiment number
 
     try:
         path = os.path.join(datapath, datafolders[i])
@@ -388,7 +389,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
 
     # testing purposes only
     
-    px, py = (50, 50)
+    px, py = (360, 235) # that's where a ni particle is in experiment 
     plt.title(f'Energy @ spectrum pixel {px, py}, Experiment {datafolders[i][9:13]}')
     plt.plot(energies, data_corr[:, px, py])    # arbitrary pixel (20, 20)
     plt.show()
