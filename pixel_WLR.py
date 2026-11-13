@@ -4,7 +4,7 @@ Moritz hat die Kalibration begonnen zu implementieren.
 Die L2+L3 Peak-Struktur werden White Lines genannt.
 Ratios der Integrale bilden.
 
-Noch nicht fertig.
+Noch nicht fertig. Ergänzt & Leistung verbessert mit Gemini.
 (Stand: 04.11.2026)
 """
 import numpy as np
@@ -100,30 +100,38 @@ for i in range(len(refs)):  # 'refs' is a list containing the reference spectra'
         mask &= ~((energies >= low) & (energies <= high))
     popt, pcov = sp.optimize.curve_fit(eels_atan_fit, energies[mask], refs[i][mask])
     if i < 2:
-        plt.plot(energies, refs[i] - eels_atan_fit(energies, *popt))
+        plt.plot(energies, refs[i] - eels_atan_fit(energies, *popt), label=ref_names[i])
     else:
-        plt.plot(energies, refs[i])
+        plt.plot(energies, refs[i], label=ref_names[i])
     #plt.plot(energies, eels_atan_fit(energies, *popt))
     #plt.plot(energies, refs[i])
-    plt.axvline(x=sepE, color='r', linestyle='--', label='Seperation Energy')
-    plt.legend()
-    plt.grid()
-    plt.title('Reference spectrum: ' + ref_names[i])
+
+plt.axvline(x=sepE, color='r', linestyle='--', label='Seperation Energy')
+plt.xlabel('Energy in eV')
+plt.ylabel('Intensity (arbitrary units)')
+plt.legend()
+plt.grid()
+plt.title('Reference spectra')
+print('\nPlotted reference spectra.')
 plt.show()
 
 ox_states = []
 wlrs = []
 for i in range(len(refs)):  # remember: "refs" contains the intensities
     # Riemann sums
-    edge3 = np.sum(refs[i][ref_energies[i] > sepE])
-    edge2 = np.sum(refs[i][ref_energies[i] < sepE])
+    #TODO: Adapt/remove the lower and upper boundaries (850, 874.5). I simply added them to compare 4 different Ni2+ ref spectra more easily.
+    edge3 = np.sum(refs[i][(850 < ref_energies[i]) & (ref_energies[i] < sepE)])
+    edge2 = np.sum(refs[i][(sepE < ref_energies[i]) & (ref_energies[i] < 874.5)])
     WLR = edge3 / edge2
     ox_states.append(int(ref_names[i][2]))
     wlrs.append(WLR)
 
 plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
+plt.xlabel('Oxidation state')
+plt.ylabel('White line ratio (L3/L2)')
 plt.legend()
 plt.title(f'Reference spectra WLRs using {sepE} as separation energy')
+print('\nPlotted WLRs.')
 plt.show()
 
 
@@ -133,9 +141,9 @@ plt.show()
 # -------------------- #
 
 #DONE: Replace "datafolders", "datapath", and "cut_regions" with something reasonable (see "data-analysis.py")
-#TODO: Import data spectra without np.abs() from Moritz's OneDrive (we switched from iCloud)
+#DONE: Import data spectra without np.abs() from Moritz's OneDrive (we switched from iCloud)
 #TODO: Test run with only one experimental data stack
-#TODO: Speed up nested for m... & for n... loop (see answer Gemini Pro)
+#DONE: Speed up nested for m... & for n... loop (see answer Gemini Pro)
 #TODO: Compare WLR with references (linear interpolation between oxidation states)
 #TODO: Make a chemical map showing the WLR, assigning certain WLR values distinct oxidation states
 #TODO: Do this for all experiments (all stacks)
@@ -156,10 +164,9 @@ cut_regions = {
 
 
 for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_AbsortionSpectrum"
-    #print(datafolders[i][9:13])
 
-    if i > 0:  # only first folder data (testing purposes only)
-        break
+    i=35 #TODO: remove this so that all experimental stacks are investigated.
+    print(f'\nProcessing experiment {datafolders[i][9:13]}...') # experiment number
 
 
     try:
@@ -222,11 +229,14 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     for low, high in lines:
         mask &= ~((energies >= low) & (energies <= high))
 
+    # Note: This is Moritz's nested for m/for n... loop. Takes long to compiled, thus replaced with Gemini suggestion below.
+    """
+
     data_patched = np.zeros((energies.shape[0], data.shape[1], data.shape[2]))
     data_corr = np.zeros((energies.shape[0], data.shape[1], data.shape[2])) #background corrected data
-    """
-    :param data_corr: 3-dimensional np array. Format: np.array((energy axis, pixel y, pixel x))
-    """
+    
+    # :param data_corr: 3-dimensional np array. Format: np.array((energy axis, pixel y, pixel x))
+    
 
     # pixel-by-pixel gap petching
     for m in range(data.shape[1]):
@@ -271,6 +281,42 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     validDataMask = ~invalidDataMask    #1 for all valid pixels
     validDataMask = sp.ndimage.binary_fill_holes(validDataMask)
     data_corr[:, ~validDataMask] = 0
+    """
+
+
+    # -------------------- #
+    # Vectorised patching & 5th-degree polynomial (Gemini)
+    # -------------------- #
+
+    # 1. Vectorized gap patching across all pixels simultaneously
+    # (Preserves data_patched for your downstream invalidDataMask check)
+    data_patched = data.copy()
+    if not np.all(gapMask):
+        interpolator = sp.interpolate.interp1d(
+            energies[gapMask],
+            data_patched[gapMask, :, :],
+            kind="cubic",
+            axis=0,
+            fill_value="extrapolate",
+        )
+        data_patched[~gapMask, :, :] = interpolator(energies[~gapMask])
+
+    # 2. Vectorized 5th-degree polynomial background subtraction
+    n_energies, height, width = data_patched.shape
+    data_flat = data_patched.reshape(n_energies, height * width)
+
+    # Normalize energies to [-1, 1] to prevent numerical ill-conditioning from E^5 (e.g. 870^5)
+    e_min, e_max = energies.min(), energies.max()
+    e_norm = 2.0 * (energies - e_min) / (e_max - e_min) - 1.0
+
+    # Solve the 5th-degree polynomial fit on the masked baseline for ALL pixels in one matrix step
+    X_masked = np.vander(e_norm[mask], 6)
+    coeffs, _, _, _ = np.linalg.lstsq(X_masked, data_flat[mask, :], rcond=None)
+
+    # Evaluate the background polynomial across all energies and subtract
+    bg_flat = np.vander(e_norm, 6) @ coeffs
+    data_corr = data_patched - bg_flat.reshape(n_energies, height, width)
+
     #data_corr = np.abs(data_corr)  #setting all negative values to zero is bad for the WLR integration purpose!
 
     #map = np.zeros((data_corr.shape[1], data_corr.shape[2]))
@@ -300,20 +346,46 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     #   CALCULATING WLRs
     # -------------------- #
 
-    edge_high_map = np.sum(data_corr[energies > sepE, :, :], axis=0)
-    edge_low_map = np.sum(data_corr[energies < sepE, :, :], axis=0)
+    edge3_map = np.sum(data_corr[energies < sepE, :, :], axis=0)
+    edge2_map = np.sum(data_corr[energies > sepE, :, :], axis=0)
+    
 
     # Avoid division by zero on masked/empty pixels
     wlr_map = np.divide(
-        edge_high_map, 
-        edge_low_map, 
-        out=np.zeros_like(edge_high_map), 
-        where=edge_low_map != 0
+        edge3_map, 
+        edge2_map, 
+        out=np.zeros_like(edge3_map, dtype=float), 
+        where=edge2_map != 0
     )
 
-    plt.title('WLR map')
+    # testing purposes only
+    
+    px, py = (50, 50)
+    plt.title(f'Energy @ spectrum pixel {px, py}, Experiment {datafolders[i][9:13]}')
+    plt.plot(energies, data_corr[:, px, py])    # arbitrary pixel (20, 20)
+    plt.show()
+    """
+    print(f'\nEnergies {energies}')
+    print(f'\nEdge high map {edge2_map}')
+    print(f'\nEdge low map {edge3_map}')
+    print(f'\nHigh map how many non-zero? {len(np.where(edge2_map > 0))}')
+    print(f'\nLow map how many non-zero? {len(np.where(edge3_map > 0))}')
+    print(f'\nHighest and lowest WLR values on the map: {np.max(wlr_map), np.min(wlr_map)}')
+    """
+
+    print("Energies range:", energies.min(), "to", energies.max(), "| sepE:", sepE)
+    print("Non-zero pixels in data_corr:", np.count_nonzero(data_corr))
+    print("wlr_map dtype:", wlr_map.dtype, "| NaNs:", np.isnan(wlr_map).sum())
+    print("wlr_map min / median / 99th / max:",
+        np.nanmin(wlr_map),
+        np.nanmedian(wlr_map),
+        np.nanpercentile(wlr_map, 99),
+        np.nanmax(wlr_map))
+
+    plt.title(f'WLR map: Experiment {datafolders[i][9:13]}')
     plt.imshow(wlr_map)
     plt.colorbar()
+    print('\nPlotted WLR map.')
     plt.show()
 
 
@@ -321,6 +393,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     # PLOTTING EXPERIMENTAL & REFERENCE WLRs
     # -------------------- #
 
+    break   #TODO: remove this so that all experimental stacks are investigated.
 
     """
     # average spectrum over all pixels
