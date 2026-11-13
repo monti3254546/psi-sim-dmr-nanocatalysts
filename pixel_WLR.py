@@ -168,7 +168,6 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     i=35 #TODO: remove this so that all experimental stacks are investigated.
     print(f'\nProcessing experiment {datafolders[i][9:13]}...') # experiment number
 
-
     try:
         path = os.path.join(datapath, datafolders[i])
         tiffpath = os.path.join(path, "background-corrected")
@@ -206,6 +205,10 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     sample_id = int(datafolders[i][9:13])
     gapMask = np.ones_like(energies, dtype=bool)
     trim_mask = np.ones_like(energies, dtype=bool)
+
+    # making sure that the correct seperation energy is applied
+    is_ni = np.nanmean(energies) > 600
+    sepE = sepE_ni if is_ni else sepE_ru
     
     for condition in cut_regions.get(sample_id, []):    # get all special conditions for certain experiments that show particularly noisy pixels
         if condition[0] == "above":
@@ -289,7 +292,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     # -------------------- #
 
     # 1. Vectorized gap patching across all pixels simultaneously
-    # (Preserves data_patched for your downstream invalidDataMask check)
+    # (Preserves data_patched for the downstream invalidDataMask check)
     data_patched = data.copy()
     if not np.all(gapMask):
         interpolator = sp.interpolate.interp1d(
@@ -345,7 +348,31 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     # -------------------- #
     #   CALCULATING WLRs
     # -------------------- #
+    
+    #TODO: Why are there negative WLRs? (negative integrals?!)
+    #TODO: Why are the WLRs so small? (reference WLR is 1.35)
+    #TODO: Play with parameters (masks). Large area is NaN right now; do we want that?
+    #TODO: Why is a single pixel's spectrum so messy (i. e. pixel (50, 50) as tested below)
+    #TODO: Why do both wlr_map imshow plots look different?
 
+    total_signal = np.nansum(data_corr, axis=0) # sets invalid NaN (not number values) to zero
+    sample_mask = total_signal > (0.1 * np.nanmax(total_signal))   # ignore unphysical signals which are show less than 10 % intensity with respect to the maximum intensity
+    # note: sample_mask is a 2D Boolean array (mask) containing True and False values.
+
+    edge3_map = np.nansum(data_corr[energies < sepE, :, :], axis=0) # Riemann Sum
+    edge2_map = np.nansum(data_corr[energies > sepE, :, :], axis=0) # Riemann Sum
+
+    wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
+    valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
+    wlr_map[valid] = edge3_map[valid] / edge2_map[valid]    # white line ratio calculation
+
+    vmin, vmax = np.nanpercentile(wlr_map, [2, 98]) # ignoring the bottom 2 percentile and the top 2 percentile
+    plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
+    plt.colorbar(label="White Line Ratio (L3/L2)")
+    plt.show()
+
+    
+    """
     edge3_map = np.sum(data_corr[energies < sepE, :, :], axis=0)
     edge2_map = np.sum(data_corr[energies > sepE, :, :], axis=0)
     
@@ -357,6 +384,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
         out=np.zeros_like(edge3_map, dtype=float), 
         where=edge2_map != 0
     )
+    """
 
     # testing purposes only
     
