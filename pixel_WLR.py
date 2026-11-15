@@ -18,6 +18,30 @@ import pandas as pd
 # user
 username = 'Tim'    # 'Moritz' or 'Tim'
 
+
+# Multiple image plot
+def multiplot(maps, title=None):
+    """
+    :param maps: List containing elements [wlr_map, file_name]
+    :param title: Overall plot title (also used for saving the image). Facultative.
+    """
+    fig = plt.figure(figsize=(10, 7))
+
+    for i, map in enumerate(maps):
+        # see: https://www.geeksforgeeks.org/python/how-to-display-multiple-images-in-one-figure-correctly-in-matplotlib/
+        plt.subplot(2, (len(maps)+1)//2, i+1)  # 2 rows, columns, i-th position
+        plt.imshow(map[0], cmap = "PiYG")  
+        plt.axis('off')  # Hide the axis labels
+        plt.title(map[1], fontsize=8)
+
+    if title != None:
+        fig.suptitle(title)
+        plt.savefig('WLR_images\\' + title + ' multiplot')
+    else:
+        plt.savefig('WLR_images\\' + map[1] + ' multiplot')
+
+    plt.show()
+
 # -------------------- #
 #  REFERENCE & EXPERIMENTAL DATA IMPORT
 # -------------------- #
@@ -28,7 +52,7 @@ if username == 'Moritz':
 elif username == 'Tim':
     referencePath = "activeRefs/"
     # raw string to prevent unicodeescape syntax error
-    datapath = r"C:\Users\Tim Elsener ETHZ\OneDrive\Dokumente\04_Studium\2_Vorlesungen\Projekte & Praktika\PSI-Projekt (Sem5)\Datenexport USB-Stick 30.10.2026"
+    datapath = r"C:\Users\Tim Elsener ETHZ\OneDrive\Dokumente\04_Studium\2_Vorlesungen\Projekte & Praktika\PSI-Projekt (Sem5)\Datenexport OneDrive Moritz 11.11.2026"
     datafolders = [
             name for name in os.listdir(datapath)
             if os.path.isdir(os.path.join(datapath, name))
@@ -77,13 +101,15 @@ for i in range(2, num_cols - 1, 2):
     
     ref_names.append(df.columns[i+1])  # Uses column name as label
 
+
+
 # -------------------- #
 # CALCULATING REFERENCE WLRs
 # -------------------- #
-#TODO: understand what this does & in what formats it is saved
+#DONE: understand what this does & in what formats it is saved
 
 # separation energies: divide the data spectra in two halves for separate integration later
-sepE_ni = 864
+sepE_ni = 879   # previously, Moritz had 864
 sepE_ru = 479
 
 sepE = sepE_ni if run == "ni" else sepE_ru
@@ -113,26 +139,28 @@ plt.legend()
 plt.grid()
 plt.title('Reference spectra')
 print('\nPlotted reference spectra.')
+plt.savefig(f'WLR_images\\Reference spectra')
 plt.show()
 
 ox_states = []
 wlrs = []
 for i in range(len(refs)):  # remember: "refs" contains the intensities
     # Riemann sums
-    #TODO: Adapt/remove the lower and upper boundaries (850, 874.5). I simply added them to compare 4 different Ni2+ ref spectra more easily.
-    edge3 = np.sum(refs[i][(850 < ref_energies[i]) & (ref_energies[i] < sepE)])
-    edge2 = np.sum(refs[i][(sepE < ref_energies[i]) & (ref_energies[i] < 874.5)])
+    #DONE: Adapt/remove the lower and upper boundaries (850, 874.5). I simply added them to compare 4 different Ni2+ ref spectra more easily.
+    edge3 = np.sum(refs[i][ref_energies[i] < sepE])
+    edge2 = np.sum(refs[i][sepE < ref_energies[i]])
     WLR = edge3 / edge2
     ox_states.append(int(ref_names[i][2]))
     wlrs.append(WLR)
 
+plt.grid()
 plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
 plt.xlabel('Oxidation state')
 plt.ylabel('White line ratio (L3/L2)')
 plt.legend()
-plt.grid()
 plt.title(f'Reference spectra WLRs using {sepE} as separation energy')
 print('\nPlotted WLRs.')
+plt.savefig(f'WLR_images\\Reference spectra WLRs')
 plt.show()
 
 
@@ -143,12 +171,13 @@ plt.show()
 
 #DONE: Replace "datafolders", "datapath", and "cut_regions" with something reasonable (see "data-analysis.py")
 #DONE: Import data spectra without np.abs() from Moritz's OneDrive (we switched from iCloud)
-#TODO: Test run with only one experimental data stack
+#DONE: Test run with only one experimental data stack
 #DONE: Speed up nested for m... & for n... loop (see answer Gemini Pro)
 #TODO: Compare WLR with references (linear interpolation between oxidation states)
+    #TODO: Do we have a good Ni1 and Ni0 spectrum?
 #TODO: Make a chemical map showing the WLR, assigning certain WLR values distinct oxidation states
 #TODO: Do this for all experiments (all stacks)
-#TODO: Make a nice overview (plots) for all experiments comparing it to other approaches?<
+#TODO: Make a nice overview (plots) for all experiments comparing it to other approaches?
 
 # dictionary containing special conditions
 cut_regions = {
@@ -163,11 +192,23 @@ cut_regions = {
     1782: [("point", 863)]
 }
 
+# used for comparing all maps across later on in one large multiplot
+wlr_maps = []   # each element's format: [wlr_map, vmin, vmax, str(sample_id)]
+
+buggyexeriments = [
+    '1768',
+    '1776',
+    '1780',
+    '1792'
+]
+
 
 for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_AbsortionSpectrum"
-
-    i=35 #TODO: remove this so that all experimental stacks are investigated.
-    print(f'\nProcessing experiment {datafolders[i][9:13]}...\n') # experiment number
+    sample_id = str(datafolders[i][9:13])
+    if sample_id in buggyexeriments: # various experiments raise ValueError for keithley (line 230)
+        continue
+    
+    print(f'\n\nProcessing experiment {sample_id}...\n') # experiment number
 
     try:
         path = os.path.join(datapath, datafolders[i])
@@ -203,7 +244,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     data /= keithley[:, None, None]
     energies_full = energies.copy()
 
-    sample_id = int(datafolders[i][9:13])
+    sample_id = int(sample_id)
     gapMask = np.ones_like(energies, dtype=bool)
     trim_mask = np.ones_like(energies, dtype=bool)
 
@@ -288,6 +329,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     """
 
 
+
     # -------------------- #
     # Vectorised patching & 5th-degree polynomial (Gemini)
     # -------------------- #
@@ -346,6 +388,8 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
         #tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
     """
 
+
+
     # -------------------- #
     #   CALCULATING WLRs
     # -------------------- #
@@ -355,6 +399,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     #TODO: Play with parameters (masks). Large area is NaN right now; do we want that?
     #TODO: Why is a single pixel's spectrum so messy (i. e. pixel (50, 50) as tested below)
     #TODO: Why do both wlr_map imshow plots look different?
+    #TODO: Why is there such a large energy shift between the reference spectrum and the experimental data? I. e. compare "Spectra 1757..." with the reference spectrum. The sepE's don't align; in the refrence spectrum, it should be 864, but in the experimental spectrum, 879 is more convenient separation. Why?!
 
     total_signal = np.nansum(data_corr, axis=0) # sets invalid NaN (not number values) to zero
     sample_mask = total_signal > (0.1 * np.nanmax(total_signal))   # ignore unphysical signals which are show less than 10 % intensity with respect to the maximum intensity
@@ -363,14 +408,41 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     edge3_map = np.nansum(data_corr[energies < sepE, :, :], axis=0) # Riemann Sum
     edge2_map = np.nansum(data_corr[energies > sepE, :, :], axis=0) # Riemann Sum
 
+    # multi plotting: see https://www.geeksforgeeks.org/python/how-to-display-multiple-images-in-one-figure-correctly-in-matplotlib/
+    fig = plt.figure(figsize=(15, 7))
+
+    # L3/L2
     wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
     valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
     wlr_map[valid] = edge3_map[valid] / edge2_map[valid]    # white line ratio calculation
 
     vmin, vmax = np.nanpercentile(wlr_map, [2, 98]) # ignoring the bottom 2 percentile and the top 2 percentile
+    
+    plt.subplot(1, 2, 1)  # rows, columns, position
     plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
-    plt.colorbar(label="White Line Ratio (L3/L2)")
-    plt.show()
+    plt.colorbar()
+    plt.axis('off')  # Hide the axis labels
+    plt.title('White Line Ratio (L3/L2)')
+
+    wlr_maps.append([wlr_map, vmin, vmax, str(sample_id)])
+
+    # L2/L3
+    wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
+    valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
+    wlr_map[valid] = edge2_map[valid] / edge3_map[valid]    # white line ratio calculation
+
+    vmin, vmax = np.nanpercentile(wlr_map, [2, 98]) # ignoring the bottom 2 percentile and the top 2 percentile
+    
+    plt.subplot(1, 2, 2)  # rows, columns, position
+    plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
+    plt.colorbar()
+    plt.axis('off')  # Hide the axis labels
+    plt.title('White Line Ratio (L2/L3)')
+
+
+    fig.suptitle(f'WLR experiment {sample_id} comparison')
+    plt.savefig(f'WLR_images\\WLR {sample_id} comparison multiplot')
+    #plt.show()
 
     
     """
@@ -387,21 +459,29 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     )
     """
 
-    # testing purposes only
-    
-    px, py = (360, 235) # that's where a ni particle is in experiment 
-    plt.title(f'Energy @ spectrum pixel {px, py}, Experiment {datafolders[i][9:13]}')
-    plt.plot(energies, data_corr[:, px, py])    # arbitrary pixel (20, 20)
-    plt.show()
-    """
-    print(f'\nEnergies {energies}')
-    print(f'\nEdge high map {edge2_map}')
-    print(f'\nEdge low map {edge3_map}')
-    print(f'\nHigh map how many non-zero? {len(np.where(edge2_map > 0))}')
-    print(f'\nLow map how many non-zero? {len(np.where(edge3_map > 0))}')
-    print(f'\nHighest and lowest WLR values on the map: {np.max(wlr_map), np.min(wlr_map)}')
-    """
+    # multi plotting point spectra
+    fig = plt.figure(figsize=(15, 7))
 
+    plist = [   # that's where some ni particles are in experiment 
+        (355, 245),
+        (257, 254),
+        (211, 131),
+        (107, 17)
+    ]
+
+    for j, (px, py) in enumerate(plist):
+        plt.subplot(2, 2, j+1)  # rows, columns, position
+        plt.title(f'Spectrum @ pixel {px, py}')
+        plt.plot(energies, data_corr[:, px, py])    # arbitrary pixel (20, 20)
+        plt.axvline(x=sepE, color='r', linestyle='--')
+
+    plt.suptitle(f'Experiment {sample_id}')
+    plt.savefig(f'WLR_images\\Spectra {sample_id} comparison multiplot')
+    #plt.show()
+
+    
+    # debugging: energy distribution across the map (Gemini)
+    """
     print("Energies range:", energies.min(), "to", energies.max(), "| sepE:", sepE)
     print("Non-zero pixels in data_corr:", np.count_nonzero(data_corr))
     print("wlr_map dtype:", wlr_map.dtype, "| NaNs:", np.isnan(wlr_map).sum())
@@ -410,19 +490,22 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
         np.nanmedian(wlr_map),
         np.nanpercentile(wlr_map, 99),
         np.nanmax(wlr_map))
+    """
 
-    plt.title(f'WLR map: Experiment {datafolders[i][9:13]}')
+    """
+    plt.title(f'WLR map: Experiment {sample_id}')
     plt.imshow(wlr_map)
     plt.colorbar()
     print('\nPlotted WLR map.')
     plt.show()
+    """
+
 
 
     # -------------------- #
     # PLOTTING EXPERIMENTAL & REFERENCE WLRs
     # -------------------- #
 
-    break   #TODO: remove this so that all experimental stacks are investigated.
 
     """
     # average spectrum over all pixels
@@ -443,5 +526,22 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     plt.show()
     #isNi = np.all(energies > 600)
     """
+
+    print(f'\nlength WLR maps: {len(wlr_maps)}')
+
+# comparing all WLR maps in one large multiplot
+fig = plt.figure(figsize=(20, 15))
+
+for i, m in enumerate(wlr_maps):  # wlr_maps elements' format: [wlr_map, vmin, vmax, str(sample_id)]
+    # see: https://www.geeksforgeeks.org/python/how-to-display-multiple-images-in-one-figure-correctly-in-matplotlib/
+    plt.subplot(8, (len(wlr_maps)+7)//8, i+1)  # 8 rows, columns, i-th position
+    plt.imshow(m[0], vmin=m[1], vmax=m[2], cmap="viridis")
+    plt.colorbar()
+    plt.axis('off')  # Hide the axis labels
+    plt.title(m[3], fontsize=8)
+
+plt.suptitle('All WLR maps: L3/L2')
+plt.savefig('WLR_images\\All WLR maps multiplot', dpi=500)
+plt.show()
 
 print('\nDone.')
