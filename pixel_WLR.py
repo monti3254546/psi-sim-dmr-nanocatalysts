@@ -394,12 +394,14 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     #   CALCULATING WLRs
     # -------------------- #
     
-    #TODO: Why are there negative WLRs? (negative integrals?!)
+    #DONE: Why are there negative WLRs? (negative integrals, where )
     #TODO: Why are the WLRs so small? (reference WLR is 1.35)
     #TODO: Play with parameters (masks). Large area is NaN right now; do we want that?
     #TODO: Why is a single pixel's spectrum so messy (i. e. pixel (50, 50) as tested below)
     #TODO: Why do both wlr_map imshow plots look different?
     #TODO: Why is there such a large energy shift between the reference spectrum and the experimental data? I. e. compare "Spectra 1757..." with the reference spectrum. The sepE's don't align; in the refrence spectrum, it should be 864, but in the experimental spectrum, 879 is more convenient separation. Why?!
+
+    #TODO: edge3 und edge 2 maps: plot them seperately.
 
     total_signal = np.nansum(data_corr, axis=0) # sets invalid NaN (not number values) to zero
     sample_mask = total_signal > (0.1 * np.nanmax(total_signal))   # ignore unphysical signals which are show less than 10 % intensity with respect to the maximum intensity
