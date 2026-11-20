@@ -109,7 +109,7 @@ for i in range(2, num_cols - 1, 2):
 #DONE: understand what this does & in what formats it is saved
 
 # separation energies: divide the data spectra in two halves for separate integration later
-sepE_ni = 879   # previously, Moritz had 864
+sepE_ni = 864   # previously, Moritz had 864
 sepE_ru = 479
 
 sepE = sepE_ni if run == "ni" else sepE_ru
@@ -139,7 +139,7 @@ plt.legend()
 plt.grid()
 plt.title('Reference spectra')
 print('\nPlotted reference spectra.')
-plt.savefig(f'WLR_images\\Reference spectra')
+plt.savefig(f'WLR_images\\Reference spectra', dpi=200)
 plt.show()
 
 ox_states = []
