@@ -109,10 +109,11 @@ for i in range(2, num_cols - 1, 2):
 #DONE: understand what this does & in what formats it is saved
 
 # separation energies: divide the data spectra in two halves for separate integration later
-sepE_ni = 864   # previously, Moritz had 864
-sepE_ru = 479
+sepE_ni = 864 + 14  # we have a systematic energy shift of about 14 eV.
+sepE_ru = 479 + 14  # dito
 
 sepE = sepE_ni if run == "ni" else sepE_ru
+sepE_ref = sepE - 14
 #lines = [(852, 864), (870, 877)]    # old conditions?
 lines = [(463.5, 471.5), (485.5, 492.5), (864, 872), (882, 887)]
 
@@ -132,7 +133,7 @@ for i in range(len(refs)):  # 'refs' is a list containing the reference spectra'
     #plt.plot(energies, eels_atan_fit(energies, *popt))
     #plt.plot(energies, refs[i])
 
-plt.axvline(x=sepE, color='r', linestyle='--', label='Seperation Energy')
+plt.axvline(x=sepE_ref, color='r', linestyle='--', label='Seperation Energy')
 plt.xlabel('Energy in eV')
 plt.ylabel('Intensity (arbitrary units)')
 plt.legend()
@@ -147,8 +148,8 @@ wlrs = []
 for i in range(len(refs)):  # remember: "refs" contains the intensities
     # Riemann sums
     #DONE: Adapt/remove the lower and upper boundaries (850, 874.5). I simply added them to compare 4 different Ni2+ ref spectra more easily.
-    edge3 = np.sum(refs[i][ref_energies[i] < sepE])
-    edge2 = np.sum(refs[i][sepE < ref_energies[i]])
+    edge3 = np.sum(refs[i][ref_energies[i] < sepE_ref])
+    edge2 = np.sum(refs[i][sepE_ref < ref_energies[i]])
     WLR = edge3 / edge2
     ox_states.append(int(ref_names[i][2]))
     wlrs.append(WLR)
@@ -158,7 +159,7 @@ plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
 plt.xlabel('Oxidation state')
 plt.ylabel('White line ratio (L3/L2)')
 plt.legend()
-plt.title(f'Reference spectra WLRs using {sepE} as separation energy')
+plt.title(f'Reference spectra WLRs using {sepE_ref} as separation energy')
 print('\nPlotted WLRs.')
 plt.savefig(f'WLR_images\\Reference spectra WLRs')
 plt.show()
@@ -234,159 +235,9 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     ]
 
 
-    data = np.array(data)   # np array containing the extracted tiff image information. Each element corresponds to one tiff file.
-
+    data_corr = np.array(data)   # np array containing the extracted tiff image information. Each element corresponds to one tiff file.
     energies = np.loadtxt(path + "/scan_1.txt", delimiter=";", skiprows=1, usecols=0)
-    keithley = np.loadtxt(path + "/scan_1.txt", delimiter=";", skiprows=1, usecols=4)
-    #print(data.shape)
-    spec_raw = np.sum(data, axis = (1, 2))
-    
-    data /= keithley[:, None, None]
-    energies_full = energies.copy()
-
-    sample_id = int(sample_id)
-    gapMask = np.ones_like(energies, dtype=bool)
-    trim_mask = np.ones_like(energies, dtype=bool)
-
-    # making sure that the correct seperation energy is applied
-    is_ni = np.nanmean(energies) > 600
-    sepE = sepE_ni if is_ni else sepE_ru
-    
-    for condition in cut_regions.get(sample_id, []):    # get all special conditions for certain experiments that show particularly noisy pixels
-        if condition[0] == "above":
-            trim_mask &= (energies <= condition[1])
-
-        elif condition[0] == "below":
-            trim_mask &= (energies >= condition[1])
-
-        elif condition[0] == "between":
-            _, low, high = condition
-            gapMask &= ~((energies >= low) & (energies <= high))
-
-        elif condition[0] == "point":
-            gapMask &= ~np.isclose(energies, condition[1], atol=1e-6)
-
-    energies = energies[trim_mask]
-    gapMask = gapMask[trim_mask]
-
-    # mask out the actual L3 and L2 peaks
-    mask = np.ones_like(energies, dtype=bool)
-    for low, high in lines:
-        mask &= ~((energies >= low) & (energies <= high))
-
-    # Note: This is Moritz's nested for m/for n... loop. Takes long to compiled, thus replaced with Gemini suggestion below.
-    """
-
-    data_patched = np.zeros((energies.shape[0], data.shape[1], data.shape[2]))
-    data_corr = np.zeros((energies.shape[0], data.shape[1], data.shape[2])) #background corrected data
-    
-    # :param data_corr: 3-dimensional np array. Format: np.array((energy axis, pixel y, pixel x))
-    
-
-    # pixel-by-pixel gap petching
-    for m in range(data.shape[1]):
-        #print(m)
-        for n in range(data.shape[2]):
-            pxspec = data[:, m, n].copy()   # 1D energy spectrum
-            pxspec = pxspec[trim_mask]
-
-            pxspec_patched = pxspec.copy()
-
-            invalid_idx = np.where(~gapMask)[0]
-            valid_idx = np.where(gapMask)[0]
-
-            if len(invalid_idx) > 0 and len(valid_idx) > 0: #check whether there is a gap and whether there are valid points to calculate the fit from
-                for idx in invalid_idx:
-                    # Grab up to 4 valid neighboring points on left and right
-                    left = valid_idx[valid_idx < idx][-4:]
-                    right = valid_idx[valid_idx > idx][:4]
-                    neighbors = np.concatenate([left, right])
-
-                    # smoothly extrapolate the missing datapoints using a 3rd-degree polynomial fit
-                    if len(neighbors) > 3:
-                        # Fit a cubic local baseline through surrounding valid data
-                        coeffs = np.polyfit(energies[neighbors], pxspec[neighbors], deg=3)
-                        pxspec_patched[idx] = np.polyval(coeffs, energies[idx])
-            data_patched[:, m, n] = pxspec_patched
-            pxspec = pxspec_patched.copy()
-
-            # background fitting using a 5th-degree polynomial fit
-            bgfit = np.polyfit(energies[mask], pxspec[mask], 5)
-            pxspec_corr = pxspec - np.polyval(bgfit, energies)  # subtract 5th-degree polynomial fit from the entire spectrum
-
-            data_corr[:, m, n] = pxspec_corr
-            #plt.plot(energies, pxspec_corr)
-            #plt.plot(energies, pxspec)
-            #plt.plot(energies, np.polyval(bgfit, energies))
-            #plt.title(f"Sample {sample_id, m, n}")
-            #plt.show()
-
-    data_corr[:, :, :10] = 0    #many broken pixels there
-    invalidDataMask = np.any(data_patched == 0, axis = 0)  #1 for all invalid pixels. PROBLEM: when using data, we havened done any interpolation yet, so there are gaps causing zeros. if we use data_corr, the zero areas are no longer zero due to background subtraction. we have to use an intermediate stage inbetween
-    validDataMask = ~invalidDataMask    #1 for all valid pixels
-    validDataMask = sp.ndimage.binary_fill_holes(validDataMask)
-    data_corr[:, ~validDataMask] = 0
-    """
-
-
-
-    # -------------------- #
-    # Vectorised patching & 5th-degree polynomial (Gemini)
-    # -------------------- #
-
-    # 1. Vectorized gap patching across all pixels simultaneously
-    # (Preserves data_patched for the downstream invalidDataMask check)
-    data_patched = data.copy()
-    if not np.all(gapMask):
-        interpolator = sp.interpolate.interp1d(
-            energies[gapMask],
-            data_patched[gapMask, :, :],
-            kind="cubic",
-            axis=0,
-            fill_value="extrapolate",
-        )
-        data_patched[~gapMask, :, :] = interpolator(energies[~gapMask])
-
-    # 2. Vectorized 5th-degree polynomial background subtraction
-    n_energies, height, width = data_patched.shape
-    data_flat = data_patched.reshape(n_energies, height * width)
-
-    # Normalize energies to [-1, 1] to prevent numerical ill-conditioning from E^5 (e.g. 870^5)
-    e_min, e_max = energies.min(), energies.max()
-    e_norm = 2.0 * (energies - e_min) / (e_max - e_min) - 1.0
-
-    # Solve the 5th-degree polynomial fit on the masked baseline for ALL pixels in one matrix step
-    X_masked = np.vander(e_norm[mask], 6)
-    coeffs, _, _, _ = np.linalg.lstsq(X_masked, data_flat[mask, :], rcond=None)
-
-    # Evaluate the background polynomial across all energies and subtract
-    bg_flat = np.vander(e_norm, 6) @ coeffs
-    data_corr = data_patched - bg_flat.reshape(n_energies, height, width)
-
-    #data_corr = np.abs(data_corr)  #setting all negative values to zero is bad for the WLR integration purpose!
-
-    #map = np.zeros((data_corr.shape[1], data_corr.shape[2]))
-    #for m in range(data_corr.shape[1]):
-    #    print(m)
-    #    for n in range(data_corr.shape[2]):
-    #        if np.any(data_corr[:, m, n] < -2):
-    #            map[m, n] = 1
-    #            plt.plot(energies, data[:, m, n], label = str(m) + ", " + str(n))
-    #            #plt.plot(energies, np.clip(data_corr[:, m, n], 0, None), linestyle = "--")
-    #plt.legend()
-    #plt.show()
-    #plt.imshow(map)
-    #plt.show()
-    
-    
-    """
-    out_dir = path + "/background-corrected/"
-    os.makedirs(out_dir, exist_ok=True)
-    stack_to_save = data_corr.astype('float32')
-    for i, frame in enumerate(stack_to_save):
-        pass
-        #tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
-    """
+    # Note: Moritz already corrected the data, thus all background correction, Keithley normalisation, masking, 5th degree polynomial fitting etc. is abundant!
 
 
 
@@ -410,58 +261,47 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     edge3_map = np.nansum(data_corr[energies < sepE, :, :], axis=0) # Riemann Sum
     edge2_map = np.nansum(data_corr[energies > sepE, :, :], axis=0) # Riemann Sum
 
-    # multi plotting: see https://www.geeksforgeeks.org/python/how-to-display-multiple-images-in-one-figure-correctly-in-matplotlib/
-    fig = plt.figure(figsize=(15, 7))
 
-    # L3/L2
+    # 3 map comparison multiplot: L3/L2, edge3_map, edge2_map
+    fig = plt.figure(figsize=(21, 7))
+
     wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
     valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
     wlr_map[valid] = edge3_map[valid] / edge2_map[valid]    # white line ratio calculation
 
-    vmin, vmax = np.nanpercentile(wlr_map, [2, 98]) # ignoring the bottom 2 percentile and the top 2 percentile
-    
-    plt.subplot(1, 2, 1)  # rows, columns, position
+    vmin, vmax = np.nanpercentile(wlr_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    plt.subplot(1, 3, 1)  # rows, columns, position
     plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
     plt.colorbar()
     plt.axis('off')  # Hide the axis labels
-    plt.title('White Line Ratio (L3/L2)')
+    plt.title(f'White Line Ratio (L3/L2)')
+
+    vmin, vmax = np.nanpercentile(edge3_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    plt.subplot(1, 3, 2)  # rows, columns, position
+    plt.imshow(edge3_map, vmin=vmin, vmax=vmax, cmap="viridis")
+    plt.colorbar()
+    plt.axis('off')  # Hide the axis labels
+    plt.title(f'L3 integral')
+
+    vmin, vmax = np.nanpercentile(edge2_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    plt.subplot(1, 3, 3)  # rows, columns, position
+    plt.imshow(edge2_map, vmin=vmin, vmax=vmax, cmap="viridis")
+    plt.colorbar()
+    plt.axis('off')  # Hide the axis labels
+    plt.title(f'L2 integral')   
+
+
+    plt.suptitle(f'Comparing WLR to L3 and L2 maps (Nr. {sample_id})')
+    plt.tight_layout()  # prevent overlapping of axes, titles etc.
+    plt.savefig(f'WLR_images\\{sample_id} WLR L3 L2 comparison')
+    #plt.show()
+    plt.close()  # Frees memory and prevents it from popping up later when plt.show() is called
 
     wlr_maps.append([wlr_map, vmin, vmax, str(sample_id)])
 
-    # L2/L3
-    wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
-    valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
-    wlr_map[valid] = edge2_map[valid] / edge3_map[valid]    # white line ratio calculation
-
-    vmin, vmax = np.nanpercentile(wlr_map, [2, 98]) # ignoring the bottom 2 percentile and the top 2 percentile
     
-    plt.subplot(1, 2, 2)  # rows, columns, position
-    plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
-    plt.colorbar()
-    plt.axis('off')  # Hide the axis labels
-    plt.title('White Line Ratio (L2/L3)')
-
-
-    fig.suptitle(f'WLR experiment {sample_id} comparison')
-    plt.savefig(f'WLR_images\\WLR {sample_id} comparison multiplot')
-    #plt.show()
-
-    
+    # multi plotting various point spectra
     """
-    edge3_map = np.sum(data_corr[energies < sepE, :, :], axis=0)
-    edge2_map = np.sum(data_corr[energies > sepE, :, :], axis=0)
-    
-
-    # Avoid division by zero on masked/empty pixels
-    wlr_map = np.divide(
-        edge3_map, 
-        edge2_map, 
-        out=np.zeros_like(edge3_map, dtype=float), 
-        where=edge2_map != 0
-    )
-    """
-
-    # multi plotting point spectra
     fig = plt.figure(figsize=(15, 7))
 
     plist = [   # that's where some ni particles are in experiment 
@@ -480,6 +320,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     plt.suptitle(f'Experiment {sample_id}')
     plt.savefig(f'WLR_images\\Spectra {sample_id} comparison multiplot')
     #plt.show()
+    """
 
     
     # debugging: energy distribution across the map (Gemini)
@@ -494,14 +335,6 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
         np.nanmax(wlr_map))
     """
 
-    """
-    plt.title(f'WLR map: Experiment {sample_id}')
-    plt.imshow(wlr_map)
-    plt.colorbar()
-    print('\nPlotted WLR map.')
-    plt.show()
-    """
-
 
 
     # -------------------- #
@@ -509,8 +342,8 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     # -------------------- #
 
 
-    """
     # average spectrum over all pixels
+    """
     newspec = np.mean(data_corr, axis = (1, 2))
     newspec /= np.max(newspec)
     newspec2 = sp.signal.savgol_filter(newspec, 11, 3)  # Savitzky-Golay filter to smoothen it out
@@ -531,6 +364,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
 
     print(f'\nlength WLR maps: {len(wlr_maps)}')
 
+
 # comparing all WLR maps in one large multiplot
 fig = plt.figure(figsize=(20, 15))
 
@@ -542,8 +376,9 @@ for i, m in enumerate(wlr_maps):  # wlr_maps elements' format: [wlr_map, vmin, v
     plt.axis('off')  # Hide the axis labels
     plt.title(m[3], fontsize=8)
 
-plt.suptitle('All WLR maps: L3/L2')
-plt.savefig('WLR_images\\All WLR maps multiplot', dpi=500)
+plt.tight_layout()
+plt.suptitle('All WLR maps: L3/L2, 5-95 percentiles')
+plt.savefig('WLR_images\\All WLR maps multiplot 5-95', dpi=500)
 plt.show()
 
 print('\nDone.')
