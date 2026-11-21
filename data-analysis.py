@@ -158,7 +158,7 @@ for i in range(len(datafolders)):
     validDataMask = ~invalidDataMask    #1 for all valid pixels
     validDataMask = sp.ndimage.binary_fill_holes(validDataMask)
     data_corr[:, ~validDataMask] = 0
-    data_corr = np.abs(data_corr)  #set all negative values to zero
+    #data_corr = np.abs(data_corr)  #set all negative values to zero
     #map = np.zeros((data_corr.shape[1], data_corr.shape[2]))
     #for m in range(data_corr.shape[1]):
     #    print(m)
@@ -178,8 +178,7 @@ for i in range(len(datafolders)):
     os.makedirs(out_dir, exist_ok=True)
     stack_to_save = data_corr.astype('float32')
     for i, frame in enumerate(stack_to_save):
-        pass
-        #tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
+        tiff.imwrite(out_dir + f"{sample_id}_b-corr_{i:03d}_{energies[i]:.1f}.tiff", frame)
 
 
     newspec = np.mean(data_corr, axis = (1, 2))
@@ -189,14 +188,14 @@ for i in range(len(datafolders)):
     plt.plot(energies, newspec2, label = "processed filtered")
     plt.plot(energies_full, spec_raw / np.max(spec_raw), label = "raw")
     plt.legend()
-    plt.show()
+    #plt.show()
     #plt.savefig(datapath + f"{sample_id}_image2.png", dpi=300)
 
     image = np.sum(data, axis = 0)
     image[:, :10] = 0
     image /= np.max(image)
     plt.imshow(image)
-    plt.show()
+    #plt.show()
     #isNi = np.all(energies > 600)
     
 
