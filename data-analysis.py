@@ -55,6 +55,7 @@ elif username == 'Tim':
 # Create figure with one plot
 fig, ax = plt.subplots(figsize=(6,6))
 
+# data preparation: imports all data & saves in arrays
 for i in range(len(datafolders)):
     print(datafolders[i][9:13])
 

@@ -1,8 +1,3 @@
-"""
-Linear Combination Fitting.
-Aktuelles File (Samuel)
-(Stand: 27.10.2026)
-"""
 from matplotlib import lines
 import numpy as np
 import os
@@ -16,8 +11,12 @@ import copy
 #Moritz Path
 #referencePath = "/Users/moritz/Library/Mobile Documents/com~apple~CloudDocs/Studium/Semester 5/Schlussprojekt/psi-sim-dmr-nanocatalysts/activeRefs/"
 #Samuel path
-referencePath = "C:\\Users\\Samuel_Uni\\psi-sim-dmr-nanocatalysts\\activeRefs"
+referencePath = "C:\\Users\\Samuel_Uni\\psi-sim-dmr-nanocatalysts\\activeRefs\\Reference_EELS_spectra.csv"
 
+#Import of csv file spectra
+reffiles = sorted(os.listdir(referencePath))
+
+#Import of txt file spectra
 reffiles = sorted(os.listdir(referencePath))
 first=True
 run = "ni"
