@@ -1,1 +1,1 @@
-864
+ref_energies[i] < 775

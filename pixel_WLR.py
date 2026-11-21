@@ -19,28 +19,6 @@ import pandas as pd
 username = 'Tim'    # 'Moritz' or 'Tim'
 
 
-# Multiple image plot
-def multiplot(maps, title=None):
-    """
-    :param maps: List containing elements [wlr_map, file_name]
-    :param title: Overall plot title (also used for saving the image). Facultative.
-    """
-    fig = plt.figure(figsize=(10, 7))
-
-    for i, map in enumerate(maps):
-        # see: https://www.geeksforgeeks.org/python/how-to-display-multiple-images-in-one-figure-correctly-in-matplotlib/
-        plt.subplot(2, (len(maps)+1)//2, i+1)  # 2 rows, columns, i-th position
-        plt.imshow(map[0], cmap = "PiYG")  
-        plt.axis('off')  # Hide the axis labels
-        plt.title(map[1], fontsize=8)
-
-    if title != None:
-        fig.suptitle(title)
-        plt.savefig('WLR_images\\' + title + ' multiplot')
-    else:
-        plt.savefig('WLR_images\\' + map[1] + ' multiplot')
-
-    plt.show()
 
 # -------------------- #
 #  REFERENCE & EXPERIMENTAL DATA IMPORT
@@ -149,13 +127,13 @@ for i in range(len(refs)):  # remember: "refs" contains the intensities
     # Riemann sums
     #DONE: Adapt/remove the lower and upper boundaries (850, 874.5). I simply added them to compare 4 different Ni2+ ref spectra more easily.
     edge3 = np.sum(refs[i][ref_energies[i] < sepE_ref])
-    edge2 = np.sum(refs[i][sepE_ref < ref_energies[i]])
+    edge2 = np.sum(refs[i][(sepE_ref < ref_energies[i]) & (ref_energies[i] < 875)]) #TODO: Remove the upper, manual boundary (875) or use arctan to correct the ni2b.txt baseline above 875 eV.
     WLR = edge3 / edge2
     ox_states.append(int(ref_names[i][2]))
     wlrs.append(WLR)
 
 plt.grid()
-plt.scatter(ox_states, WLR, label='WLR ' + ref_names[i])
+plt.scatter(ox_states, wlrs, label='WLR ' + ref_names[i])
 plt.xlabel('Oxidation state')
 plt.ylabel('White line ratio (L3/L2)')
 plt.legend()
@@ -180,18 +158,6 @@ plt.show()
 #TODO: Do this for all experiments (all stacks)
 #TODO: Make a nice overview (plots) for all experiments comparing it to other approaches?
 
-# dictionary containing special conditions
-cut_regions = {
-    1776: [("above", 490)],
-    1792: [("below", 852), ("above", 891)],
-    1768: [("above", 889)],
-    1780: [("above", 889)],
-    1761: [("between", 474, 479)],
-    1787: [("between", 869.2, 872)],
-    1781: [("point", 866.8)],
-    1756: [("between", 867.8, 868.8)],
-    1782: [("point", 863)]
-}
 
 # used for comparing all maps across later on in one large multiplot
 wlr_maps = []   # each element's format: [wlr_map, vmin, vmax, str(sample_id)]
@@ -237,6 +203,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
 
     data_corr = np.array(data)   # np array containing the extracted tiff image information. Each element corresponds to one tiff file.
     energies = np.loadtxt(path + "/scan_1.txt", delimiter=";", skiprows=1, usecols=0)
+    
     # Note: Moritz already corrected the data, thus all background correction, Keithley normalisation, masking, 5th degree polynomial fitting etc. is abundant!
 
 
@@ -265,25 +232,31 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     # 3 map comparison multiplot: L3/L2, edge3_map, edge2_map
     fig = plt.figure(figsize=(21, 7))
 
+    valid = (
+    sample_mask
+    & (edge2_map > 0.10 * np.nanmax(edge2_map))
+    )   # note: The "&" operator performs an element-by-element logical AND between those two grids.
     wlr_map = np.full(edge3_map.shape, np.nan, dtype=float) # same shape and data type
-    valid = sample_mask & (edge2_map > 0)   # note: The "&" operator performs an element-by-element logical AND between those two grids.
     wlr_map[valid] = edge3_map[valid] / edge2_map[valid]    # white line ratio calculation
 
-    vmin, vmax = np.nanpercentile(wlr_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    percentile_low = 5
+    percentile_high = 95
+
+    vmin, vmax = np.nanpercentile(wlr_map, [percentile_low, percentile_high]) # ignoring the bottom 2 percentile and the top 2 percentile
     plt.subplot(1, 3, 1)  # rows, columns, position
     plt.imshow(wlr_map, vmin=vmin, vmax=vmax, cmap="viridis")
     plt.colorbar()
     plt.axis('off')  # Hide the axis labels
     plt.title(f'White Line Ratio (L3/L2)')
 
-    vmin, vmax = np.nanpercentile(edge3_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    vmin, vmax = np.nanpercentile(edge3_map, [percentile_low, percentile_high]) # ignoring the bottom 2 percentile and the top 2 percentile
     plt.subplot(1, 3, 2)  # rows, columns, position
     plt.imshow(edge3_map, vmin=vmin, vmax=vmax, cmap="viridis")
     plt.colorbar()
     plt.axis('off')  # Hide the axis labels
     plt.title(f'L3 integral')
 
-    vmin, vmax = np.nanpercentile(edge2_map, [5, 95]) # ignoring the bottom 2 percentile and the top 2 percentile
+    vmin, vmax = np.nanpercentile(edge2_map, [percentile_low, percentile_high]) # ignoring the bottom 2 percentile and the top 2 percentile
     plt.subplot(1, 3, 3)  # rows, columns, position
     plt.imshow(edge2_map, vmin=vmin, vmax=vmax, cmap="viridis")
     plt.colorbar()
@@ -297,6 +270,7 @@ for i in range(len(datafolders)):   # all folders, e.g. "20260918_1750_Absortion
     #plt.show()
     plt.close()  # Frees memory and prevents it from popping up later when plt.show() is called
 
+    vmin, vmax = np.nanpercentile(wlr_map, [percentile_low, percentile_high]) # ignoring the bottom 2 percentile and the top 2 percentile
     wlr_maps.append([wlr_map, vmin, vmax, str(sample_id)])
 
     
@@ -376,9 +350,9 @@ for i, m in enumerate(wlr_maps):  # wlr_maps elements' format: [wlr_map, vmin, v
     plt.axis('off')  # Hide the axis labels
     plt.title(m[3], fontsize=8)
 
-plt.tight_layout()
-plt.suptitle('All WLR maps: L3/L2, 5-95 percentiles')
-plt.savefig('WLR_images\\All WLR maps multiplot 5-95', dpi=500)
+#plt.tight_layout()
+plt.suptitle(f'All WLR maps: L3/L2, {percentile_low}-{percentile_high} percentiles')
+plt.savefig(f'WLR_images\\All WLR maps multiplot {percentile_low}-{percentile_high}', dpi=500)
 plt.show()
 
 print('\nDone.')
